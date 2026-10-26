@@ -24,3 +24,7 @@ web/.data/
 backend/bin/
 web/test-results/
 web/playwright-report/
+
+# DICOM d'exemple (examples/telecharger.sh)
+examples/github/
+examples/tcia/

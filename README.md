@@ -124,6 +124,8 @@ Serveur MCP en stdio pour le développement : `MAMMOMESH_MCP_TOKEN=mmk_... go ru
 | Unitaires web | `make test-web` | Vitest en environnement Nuxt : stores campagne et session, aides des écrans, effets calculés, lexique des mutations, formules KaTeX, concordance avec `docs/` |
 | Bout en bout | `E2E_DATABASE_URL=… make e2e` | Playwright, pile complète (API, orchestrateur, Nuxt, proxy à la place de Caddy, port 14000) : présentation, refus, premier accès, campagne suivie en direct jusqu'à la fin, aides et effets des réglages, repartir d'une campagne, images (import, visionneuse, test, suppression), documentation, jetons MCP, déconnexion, affichage téléphone |
 
+DICOM réels de sources libres (fo-dicom, pydicom, TCIA) : `make exemples` puis `go test -count=1 ./internal/imagerie -run TestExemples` ; voir [examples/README.md](examples/README.md).
+
 La CI lance les quatre niveaux, avec PostgreSQL 18 et Redis 8 en services. Couverture Go mesurée : 80 % des instructions de `internal/`.
 
 ## Documentation

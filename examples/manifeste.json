@@ -1,0 +1,104 @@
+{
+  "description": "DICOM d'exemple de sources libres, pour les tests de MammoMesh. Voir README.md. Les fichiers .dcm ne sont pas versionnés : ./telecharger.sh les récupère.",
+  "github": [
+    {
+      "fichier": "github/fo-dicom_MG_Siemens_CC_R.dcm",
+      "url": "https://raw.githubusercontent.com/fo-dicom/fo-dicom/7ea6d424d0b0e11ecf6a55e81a8ac58b05d5e3e2/Tests/FO-DICOM.Benchmark/Data/MG.dcm",
+      "sha256": "00eea48cbfe96029ea4786c67713ef0e89fb87855dbd9f1817ca0f16a35f5211",
+      "source": "fo-dicom, données de test (Tests/FO-DICOM.Benchmark/Data/MG.dcm)",
+      "licence": "MS-PL (dépôt fo-dicom)",
+      "contenu": "Mammographie numérique réelle, Siemens Mammomat Inspiration, CC droite, 2082 × 2800, 12 bits, non compressée ; anonymisée (DcmAnonymize : noms et établissement fictifs)",
+      "attendu": { "statut": "accepte", "modalite": "MG", "vue": "CC", "lateralite": "R", "cols": 2082, "rows": 2800, "inverse": false }
+    },
+    {
+      "fichier": "github/pydicom_RG3_CR_MONOCHROME1.dcm",
+      "url": "https://raw.githubusercontent.com/pydicom/pydicom-data/abc42b90985fb6cf385aa4af766d2c9c94a257a4/data_store/data/RG3_UNCR.dcm",
+      "sha256": "6babfc42dd404213e1758d6dbb93648c248783cc23f593103fff4295c3374dfb",
+      "source": "pydicom-data (NEMA WG04, échantillons de compression)",
+      "licence": "MIT (dépôt pydicom-data)",
+      "contenu": "Radiographie CR (pas une mammographie), 1760 × 1760, 10 bits, MONOCHROME1 : vérifie l'inversion automatique",
+      "attendu": { "statut": "accepte", "modalite": "CR", "cols": 1760, "rows": 1760, "inverse": true }
+    },
+    {
+      "fichier": "github/pydicom_CT_small_signe.dcm",
+      "url": "https://raw.githubusercontent.com/pydicom/pydicom/705332479c533167a2ddf5570c9b2691d0490215/src/pydicom/data/test_files/CT_small.dcm",
+      "sha256": "3dd31e5cc835b3f2cdd46c9da1982f59251e78518fefa8163d914631c66437d6",
+      "source": "pydicom, fichiers de test (réduit de CT1_UNC, NEMA WG04)",
+      "licence": "MIT (dépôt pydicom)",
+      "contenu": "Coupe CT 128 × 128, pixels signés et rééchelonnage : vérifie le passage sur 16 bits non signés",
+      "attendu": { "statut": "accepte", "modalite": "CT", "cols": 128, "rows": 128, "inverse": false }
+    },
+    {
+      "fichier": "github/pydicom_MR_small_big_endian.dcm",
+      "url": "https://raw.githubusercontent.com/pydicom/pydicom/705332479c533167a2ddf5570c9b2691d0490215/src/pydicom/data/test_files/MR_small_bigendian.dcm",
+      "sha256": "3e4c8c9fe70de4f3be149bbd673fa56f211c8e8e2ff9bac63f70f9dc31b5d108",
+      "source": "pydicom, fichiers de test (réduit de MR1_UNC, NEMA WG04)",
+      "licence": "MIT (dépôt pydicom)",
+      "contenu": "IRM 64 × 64 en Explicit VR Big Endian : vérifie la lecture gros-boutiste",
+      "attendu": { "statut": "accepte", "modalite": "MR", "cols": 64, "rows": 64, "inverse": false }
+    },
+    {
+      "fichier": "github/pydicom_RG1_JPEG2000.dcm",
+      "url": "https://raw.githubusercontent.com/pydicom/pydicom-data/abc42b90985fb6cf385aa4af766d2c9c94a257a4/data_store/data/RG1_J2KR.dcm",
+      "sha256": "7fbfd29360af806770102fd7c4ffcb2a133075bd00920a4bb63460d516f67ac4",
+      "source": "pydicom-data (NEMA WG04)",
+      "licence": "MIT (dépôt pydicom-data)",
+      "contenu": "Radiographie compressée en JPEG 2000 sans perte : doit être refusée avec un message clair",
+      "attendu": { "statut": "refuse", "motif": "JPEG 2000" }
+    },
+    {
+      "fichier": "github/pydicom_JPEG_lossless.dcm",
+      "url": "https://raw.githubusercontent.com/pydicom/pydicom-data/abc42b90985fb6cf385aa4af766d2c9c94a257a4/data_store/data/JPGLosslessP14SV1_1s_1f_8b.dcm",
+      "sha256": "1978d4f058e52d3239fae33f261b3dc74605fdd9f89031fffd57bea6218d0dbf",
+      "source": "pydicom-data",
+      "licence": "MIT (dépôt pydicom-data)",
+      "contenu": "Image compressée en JPEG sans perte (processus 14) : doit être refusée",
+      "attendu": { "statut": "refuse", "motif": "JPEG Lossless" }
+    },
+    {
+      "fichier": "github/pydicom_JPEG_12bits.dcm",
+      "url": "https://raw.githubusercontent.com/pydicom/pydicom/705332479c533167a2ddf5570c9b2691d0490215/src/pydicom/data/test_files/JPEG-lossy.dcm",
+      "sha256": "c425608e2fcda8332c75d33f890bfe3bae32700608b719046b3d9e789374c292",
+      "source": "pydicom, fichiers de test (GDCM)",
+      "licence": "MIT (dépôt pydicom) ; données GDCM sous licence BSD",
+      "contenu": "JPEG avec perte sur 12 bits (processus 2 et 4) : doit être refusée",
+      "attendu": { "statut": "refuse", "motif": "JPEG Extended" }
+    },
+    {
+      "fichier": "github/pydicom_SC_couleur.dcm",
+      "url": "https://raw.githubusercontent.com/pydicom/pydicom-data/abc42b90985fb6cf385aa4af766d2c9c94a257a4/data_store/data/SC_rgb.dcm",
+      "sha256": "b0f868d6a689a0ff96c39b459caf1b628eacd74134114ce84549573321231138",
+      "source": "pydicom-data",
+      "licence": "MIT (dépôt pydicom-data)",
+      "contenu": "Capture secondaire en couleur (RGB) : doit être refusée (niveaux de gris seulement)",
+      "attendu": { "statut": "refuse", "motif": "niveaux de gris" }
+    }
+  ],
+  "tcia": [
+    {
+      "collection": "CMMD", "patient": "D1-0001",
+      "licence": "CC BY 4.0", "doi": "10.7937/tcia.eqde-4b16",
+      "contenu": "Chinese Mammography Database : mammographies numériques, 2 images (environ 8,8 Mo)"
+    },
+    {
+      "collection": "CMMD", "patient": "D2-0140",
+      "licence": "CC BY 4.0", "doi": "10.7937/tcia.eqde-4b16",
+      "contenu": "Chinese Mammography Database : 4 images, CC et MLO des deux seins (environ 17,6 Mo)"
+    },
+    {
+      "collection": "CBIS-DDSM", "patient": "Mass-Training_P_00001_LEFT_CC", "filtre": "full mammogram",
+      "licence": "CC BY 3.0", "doi": "10.7937/K9/TCIA.2016.7O02S9CY",
+      "contenu": "DDSM (film numérisé), masse, sein gauche CC, image complète (environ 29 Mo)"
+    },
+    {
+      "collection": "CBIS-DDSM", "patient": "Mass-Training_P_00001_LEFT_MLO", "filtre": "full mammogram",
+      "licence": "CC BY 3.0", "doi": "10.7937/K9/TCIA.2016.7O02S9CY",
+      "contenu": "DDSM, même patiente, sein gauche MLO (environ 25 Mo)"
+    },
+    {
+      "collection": "CBIS-DDSM", "patient": "Calc-Training_P_00005_RIGHT_CC", "filtre": "full mammogram",
+      "licence": "CC BY 3.0", "doi": "10.7937/K9/TCIA.2016.7O02S9CY",
+      "contenu": "DDSM, microcalcifications, sein droit CC (environ 28 Mo)"
+    }
+  ]
+}

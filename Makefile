@@ -1,5 +1,5 @@
 # Raccourcis de développement. La production passe par docker compose (voir README).
-.PHONY: secrets up down logs test test-backend test-web e2e dev-api dev-orchestrator dev-web ca
+.PHONY: secrets up down logs test test-backend test-web e2e dev-api dev-orchestrator dev-web ca exemples
 
 secrets:
 	./scripts/init-secrets.sh
@@ -43,3 +43,7 @@ dev-orchestrator:
 
 dev-web:
 	cd web && npm run dev
+
+# DICOM d'exemple de sources libres (examples/README.md) ; EXEMPLES_OPTS=--sans-tcia pour GitHub seul.
+exemples:
+	./examples/telecharger.sh $(EXEMPLES_OPTS)

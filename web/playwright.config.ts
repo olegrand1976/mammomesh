@@ -38,6 +38,7 @@ export default defineConfig({
         DATABASE_URL: db, REDIS_URL: process.env.E2E_REDIS_URL ?? '', MCP_TOKEN_PEPPER: 'e2e',
         COOKIE_SECURE: 'false', LISTEN_ADDR: '127.0.0.1:18080', METRICS_ADDR: '127.0.0.1:19090',
         ADMIN_USERNAME: 'admin', ADMIN_PASSWORD: '', COALESCE_INTERVAL: '300ms', LOG_LEVEL: 'warn',
+        IMAGES_URL: '', IMAGES_DIR: 'test-results/images-e2e',
       },
       reuseExistingServer: false,
       timeout: 60_000,

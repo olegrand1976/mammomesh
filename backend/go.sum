@@ -13,6 +13,8 @@ github.com/golang-jwt/jwt/v5 v5.3.1 h1:kYf81DTWFe7t+1VvL7eS+jKFVWaUnK9cB1qbwn63Y
 github.com/golang-jwt/jwt/v5 v5.3.1/go.mod h1:fxCRLWMO43lRc8nhHWY6LGqRcf+1gQWArsqaEUEa5bE=
 github.com/golang/crypto v0.58.0 h1:nmxGYk9V15P3mloSwxCFfgOCt8+73Btg69h7jpNK2aM=
 github.com/golang/crypto v0.58.0/go.mod h1:Xh+kl5A+M0gMiWDytH2Hhr5Z7WbNCpv/eB/EFgfSk+w=
+github.com/golang/exp v0.0.0-20261014143641-f0251eb4aa3e h1:rrbh435noX3sGV6v1A3LCso2LI5NKy9JylgLg+QnBkU=
+github.com/golang/exp v0.0.0-20261014143641-f0251eb4aa3e/go.mod h1:DBoxwWhjaW8DJJw/YeM4zpeOKMC1FMXSblsYy+1mFSw=
 github.com/golang/oauth2 v0.37.0 h1:/yF3PY8LELdGh8HJRSCCeRME2L1Y2diLDbqe0dvOqZg=
 github.com/golang/oauth2 v0.37.0/go.mod h1:IxwZNxUULJmpBFf9K/9NTMSIfZZuvuTy1gGxhigP/58=
 github.com/golang/sync v0.24.0 h1:/1oihqheTDuda9w1VvRSiV/Dd1S7do6OxfgiWIrLih0=
@@ -56,6 +58,8 @@ github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UV
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWDWE=
 github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUmoNlxoYthg=
+github.com/suyashkumar/dicom v1.1.0 h1:AG+N/aQnD+jzkFuFzz2wO401qXI8KnNcYGQgvTBr9LA=
+github.com/suyashkumar/dicom v1.1.0/go.mod h1:8Yw14x/0r4fXVnutbCJpF3HiLVbgMS1DQ2HpfbDjq8Y=
 github.com/uber-go/atomic v1.12.0 h1:tyVThFBVMyYRNJu15hwzt626mnidDdAaBYYI1ytlAeQ=
 github.com/uber-go/atomic v1.12.0/go.mod h1:I6c4cg+6HCxRjfjSsYtApoFILnpc0CGUdGkXVqbYVNk=
 github.com/yaml/go-yaml/v3 v3.0.5 h1:A7ipiVTIbvRRFZgCPneVjfu+k3RwkopWTB7oAP5KuIk=

@@ -19,6 +19,7 @@ import (
 	"github.com/olegrand1976/mammomesh/backend/internal/auth"
 	"github.com/olegrand1976/mammomesh/backend/internal/campaign"
 	"github.com/olegrand1976/mammomesh/backend/internal/config"
+	"github.com/olegrand1976/mammomesh/backend/internal/imagerie"
 	"github.com/olegrand1976/mammomesh/backend/internal/mcpserver"
 	"github.com/olegrand1976/mammomesh/backend/internal/realtime"
 	"github.com/olegrand1976/mammomesh/backend/internal/store"
@@ -36,6 +37,7 @@ type Server struct {
 	loginLimit *auth.Limiter // par identifiant
 	ipLimit    *auth.Limiter // par adresse : plus large, plusieurs personnes peuvent partager un poste
 	mcpLimit   *auth.Limiter
+	images     imagerie.Store // pixels des images de test ; nil : routes d'images indisponibles
 }
 
 // Limits regroupe les limiteurs de débit.
@@ -91,6 +93,14 @@ func (s *Server) Router() http.Handler {
 			r.Get("/api/mcp-tokens", s.listTokens)
 			r.Post("/api/mcp-tokens", s.createToken)
 			r.Delete("/api/mcp-tokens/{id}", s.revokeToken)
+			r.Get("/api/images", s.listImages)
+			r.Post("/api/images", s.importImage)
+			r.Get("/api/images/exemple.dcm", s.exempleDICOM)
+			r.Get("/api/images/{id}", s.getImage)
+			r.Get("/api/images/{id}/pixels", s.imagePixels)
+			r.Delete("/api/images/{id}", s.deleteImage)
+			r.Get("/api/images/{id}/tests", s.listImageTests)
+			r.Post("/api/images/{id}/tests", s.testImage)
 		})
 	})
 
@@ -272,6 +282,8 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 		"lancer_campagnes":   auth.CanRunCampaigns(u.Role),
 		"proposer_config":    auth.CanProposeConfig(u.Role),
 		"jetons_proposition": auth.CanProposeConfig(u.Role),
+		"tester_images":      auth.CanTestImages(u.Role),
+		"purger_images":      auth.CanPurgeImages(u.Role),
 	}})
 }
 

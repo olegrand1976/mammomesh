@@ -12,6 +12,7 @@ const session = useSessionStore()
           <NuxtLink to="/suivi">Campagnes</NuxtLink>
           <NuxtLink v-if="session.permissions?.proposer_config" to="/suivi/nouvelle">Nouvelle campagne</NuxtLink>
           <NuxtLink to="/suivi/jetons">Jetons MCP</NuxtLink>
+          <NuxtLink to="/suivi/images">Images</NuxtLink>
           <NuxtLink to="/suivi/fonctionnement">Fonctionnement</NuxtLink>
         </nav>
         <div class="spacer" />

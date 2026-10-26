@@ -162,6 +162,38 @@ test('repartir d\'une campagne terminée, depuis le front de sa génération fin
   }
 })
 
+test('images : import pseudonymisé, visionneuse, test simulé d\'un individu, suppression', async ({ page }) => {
+  await connexion(page, ADMIN.nouveau)
+  const exemple = await page.request.get('/api/images/exemple.dcm?vue=CC&cote=R')
+  expect(exemple.headers()['content-disposition']).toContain('exemple-synthetique-R-CC')
+  await page.getByRole('link', { name: 'Images', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Images', exact: true })).toBeVisible()
+  await page.getByLabel('Libellé (facultatif)').fill('Essai CC droite')
+  await page.locator('input[type=file]').setInputFiles({ name: 'MARTIN_Jeanne_1965.dcm', mimeType: 'application/dicom', buffer: await exemple.body() })
+  await expect(page.getByRole('status')).toContainText('en-têtes identifiants écartés')
+  await expect(page.getByRole('heading', { name: 'Essai CC droite' })).toBeVisible()
+  await expect(page.getByText('MARTIN')).toHaveCount(0)
+  await expect(page.locator('.chargement')).toHaveCount(0) // pixels reçus et affichés
+  // Visionneuse : zoom au clavier, inversion.
+  await page.locator('canvas').focus()
+  await page.keyboard.press('+')
+  await expect(page.getByText(/^\d+ %$/)).not.toHaveText('0 %')
+  await page.getByRole('button', { name: 'Inverser' }).click()
+  await expect(page.getByRole('button', { name: 'Inverser' })).toHaveAttribute('aria-pressed', 'true')
+  // Individu par défaut : génération finale de la campagne finie la plus récente, meilleur sur E-val.
+  await expect(page.getByLabel('Génération', { exact: true }).locator('option:checked')).toContainText('(finale)')
+  await page.getByRole('button', { name: /Tester sur cette image/ }).click()
+  await expect(page.getByRole('note').filter({ hasText: 'Simulation' })).toBeVisible()
+  await expect(page.locator('.resultat')).toContainText(/score \d,\d\d/)
+  await expect(page.getByText(/1 test\(s\)/)).toBeVisible()
+  await page.getByText(/^Tests précédents sur cette image/).click()
+  await expect(page.locator('.historique li')).toHaveCount(1)
+  // Suppression définitive.
+  page.once('dialog', d => d.accept())
+  await page.getByRole('button', { name: 'Supprimer Essai CC droite' }).click()
+  await expect(page.getByText('Aucune image pour l\'instant.')).toBeVisible()
+})
+
 test('jeton MCP créé, affiché une fois, puis révoqué', async ({ page }) => {
   await connexion(page, ADMIN.nouveau)
   await page.goto('/suivi/jetons')

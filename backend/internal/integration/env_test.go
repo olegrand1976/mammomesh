@@ -21,6 +21,7 @@ import (
 	"github.com/olegrand1976/mammomesh/backend/internal/auth"
 	"github.com/olegrand1976/mammomesh/backend/internal/config"
 	"github.com/olegrand1976/mammomesh/backend/internal/db"
+	"github.com/olegrand1976/mammomesh/backend/internal/imagerie"
 	"github.com/olegrand1976/mammomesh/backend/internal/realtime"
 	"github.com/olegrand1976/mammomesh/backend/internal/store"
 )
@@ -64,7 +65,8 @@ func newEnv(t *testing.T, rdb *auth.Redis) *env {
 	hubCtx, hubStop := context.WithCancel(ctx)
 	go hub.Run(hubCtx)
 	mux := api.New(cfg, st, hub, log, api.Limits{Redis: rdb, LoginPerUser: auth.NewLimiter(rdb, 10, time.Minute),
-		LoginPerIP: auth.NewLimiter(rdb, 50, time.Minute), MCPPerToken: auth.NewLimiter(rdb, 1000, time.Minute)}).Router()
+		LoginPerIP: auth.NewLimiter(rdb, 50, time.Minute), MCPPerToken: auth.NewLimiter(rdb, 1000, time.Minute)}).
+		WithImages(imagerie.DirStore{Dir: t.TempDir()}).Router()
 	srv := httptest.NewServer(mux)
 	// Ordre de fermeture : serveur, relais (il rend sa connexion d'écoute), puis base.
 	t.Cleanup(func() { srv.Close(); hubStop(); pool.Close(); cancel() })

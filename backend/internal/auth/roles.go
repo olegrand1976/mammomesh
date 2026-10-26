@@ -32,6 +32,12 @@ func CanProposeConfig(role string) bool {
 	return role == RoleAdmin || role == RoleScientist || role == RoleDataManager
 }
 
+// CanTestImages : importer des images et y tester des individus (tous sauf le lecteur).
+func CanTestImages(role string) bool { return ValidRole(role) && role != RoleReader }
+
+// CanPurgeImages : supprimer une image et ses tests.
+func CanPurgeImages(role string) bool { return role == RoleAdmin || role == RoleDataManager }
+
 // User est l'utilisateur authentifié d'une requête.
 type User struct {
 	ID          int64  `json:"id"`

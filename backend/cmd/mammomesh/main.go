@@ -29,6 +29,7 @@ import (
 	"github.com/olegrand1976/mammomesh/backend/internal/auth"
 	"github.com/olegrand1976/mammomesh/backend/internal/config"
 	"github.com/olegrand1976/mammomesh/backend/internal/db"
+	"github.com/olegrand1976/mammomesh/backend/internal/imagerie"
 	"github.com/olegrand1976/mammomesh/backend/internal/mcpserver"
 	"github.com/olegrand1976/mammomesh/backend/internal/orchestrator"
 	"github.com/olegrand1976/mammomesh/backend/internal/realtime"
@@ -145,7 +146,7 @@ func runAPI(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 		LoginPerUser: auth.NewLimiter(rdb, 10, 15*time.Minute), // 10 tentatives par identifiant et par 15 minutes
 		LoginPerIP:   auth.NewLimiter(rdb, 50, 15*time.Minute), // 50 par adresse : un poste partagé reste utilisable
 		MCPPerToken:  auth.NewLimiter(rdb, 120, time.Minute),   // 120 appels MCP par minute et par jeton
-	})
+	}).WithImages(imageStore(cfg, log))
 	httpSrv := &http.Server{Addr: cfg.ListenAddr, Handler: srv.Router(), ReadHeaderTimeout: 10 * time.Second}
 	metricsSrv := &http.Server{Addr: cfg.MetricsAddr, Handler: api.MetricsHandler(hub, rdb), ReadHeaderTimeout: 5 * time.Second}
 
@@ -219,6 +220,16 @@ func runMCPStdio(ctx context.Context, cfg config.Config) error {
 		return errors.New("MAMMOMESH_MCP_TOKEN absent ou invalide")
 	}
 	return mcpserver.NewServer(st, p).Run(ctx, &mcp.StdioTransport{})
+}
+
+// imageStore : filer SeaweedFS si IMAGES_URL est défini, sinon un dossier local.
+func imageStore(cfg config.Config, log *slog.Logger) imagerie.Store {
+	if cfg.ImagesURL != "" {
+		log.Info("images de test : filer SeaweedFS", "url", cfg.ImagesURL)
+		return imagerie.NewFilerStore(cfg.ImagesURL)
+	}
+	log.Info("images de test : dossier local", "dossier", cfg.ImagesDir)
+	return imagerie.DirStore{Dir: cfg.ImagesDir}
 }
 
 // openRedis prépare le client des compteurs : délais courts et aucun nouvel essai,

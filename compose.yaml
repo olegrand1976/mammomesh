@@ -66,6 +66,8 @@ services:
       COOKIE_SECURE: "true"
       ALLOWED_ORIGINS: https://${SITE_ADDRESS:-mammomesh.lan}
       COALESCE_INTERVAL: 2s
+      # Pixels des images de test (en-têtes patient jamais gardés), sur le filer SeaweedFS interne.
+      IMAGES_URL: http://s3:8888/mammomesh-images
     healthcheck:
       test: ["CMD", "/usr/local/bin/mammomesh", "healthcheck"]
       interval: 10s
@@ -75,6 +77,7 @@ services:
     depends_on:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
+      s3: { condition: service_started }
 
   orchestrator:
     <<: *backend

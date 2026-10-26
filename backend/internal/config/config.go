@@ -26,6 +26,8 @@ type Config struct {
 	AdminUsername    string
 	AdminPassword    string
 	LogLevel         string
+	ImagesURL        string // filer SeaweedFS des images de test (prioritaire)
+	ImagesDir        string // à défaut, dossier local
 }
 
 // Load construit la configuration. Un secret se lit dans le fichier désigné par NOM_FILE
@@ -40,6 +42,8 @@ func Load() (Config, error) {
 		CoalesceInterval: envDuration("COALESCE_INTERVAL", 2*time.Second),
 		AdminUsername:    env("ADMIN_USERNAME", "admin"),
 		LogLevel:         env("LOG_LEVEL", "info"),
+		ImagesURL:        env("IMAGES_URL", ""),
+		ImagesDir:        env("IMAGES_DIR", "data/images"),
 	}
 	if o := env("ALLOWED_ORIGINS", ""); o != "" {
 		for _, s := range strings.Split(o, ",") {

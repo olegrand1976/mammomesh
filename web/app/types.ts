@@ -12,6 +12,59 @@ export interface Permissions {
   lancer_campagnes: boolean
   proposer_config: boolean
   jetons_proposition: boolean
+  tester_images: boolean
+  purger_images: boolean
+}
+
+/** Métadonnées techniques d'une image importée (aucune donnée patient). */
+export interface ImageMeta {
+  rows: number
+  cols: number
+  bits_stored: number
+  photometric: string
+  invert: boolean
+  window_center: number
+  window_width: number
+  min: number
+  max: number
+  modality: string
+  view: string
+  laterality: string
+  manufacturer: string
+  model: string
+  transfer_syntax: string
+  tissue: [number, number, number, number]
+  pixel_sha256: string
+}
+
+export interface ImageRow {
+  id: number
+  libelle: string
+  meta: ImageMeta
+  taille_octets: number
+  nb_tests: number
+  created_at: string
+}
+
+export interface Zone { x: number; y: number; largeur: number; hauteur: number; score: number; type: string }
+
+export interface ResultatTest {
+  simulation: boolean
+  score: number
+  duree_ms: number
+  zones: Zone[]
+  avertissement: string
+}
+
+export interface ImageTest {
+  id: number
+  image_id: number
+  individual_id: number
+  individu: string
+  campaign_id: number
+  generation: number
+  resultat: ResultatTest
+  created_at: string
 }
 
 export interface CampaignConfig {

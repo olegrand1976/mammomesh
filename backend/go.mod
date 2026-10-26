@@ -18,8 +18,10 @@ require (
 	github.com/jackc/puddle/v2 v2.2.3 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/segmentio/encoding v0.5.4 // indirect
+	github.com/suyashkumar/dicom v1.1.0 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	go.uber.org/atomic v1.12.0 // indirect
+	golang.org/x/exp v0.0.0-20240525044651-4c93da0ed11d // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
@@ -33,6 +35,7 @@ replace (
 	go.uber.org/atomic => github.com/uber-go/atomic v1.12.0
 	go.yaml.in/yaml/v3 => github.com/yaml/go-yaml/v3 v3.0.5
 	golang.org/x/crypto => github.com/golang/crypto v0.58.0
+	golang.org/x/exp => github.com/golang/exp v0.0.0-20261014143641-f0251eb4aa3e
 	golang.org/x/mod => github.com/golang/mod v0.42.0
 	golang.org/x/net => github.com/golang/net v0.61.0
 	golang.org/x/oauth2 => github.com/golang/oauth2 v0.37.0

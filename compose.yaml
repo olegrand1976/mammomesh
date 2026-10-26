@@ -9,11 +9,17 @@
 
 name: mammomesh
 
+# Journaux bornés (3 × 10 Mo par service) : ils ne peuvent pas remplir le disque.
+x-logging: &logging
+  driver: json-file
+  options: { max-size: 10m, max-file: "3" }
+
 x-backend: &backend
   build:
     context: ./backend
   image: mammomesh/backend:${MAMMOMESH_VERSION:-dev}
   restart: unless-stopped
+  logging: *logging
   environment: &backend-env
     POSTGRES_HOST: postgres
     POSTGRES_DB: mammomesh
@@ -28,6 +34,7 @@ services:
   caddy:
     image: caddy:2.11
     restart: unless-stopped
+    logging: *logging
     ports:
       - "${BIND_ADDRESS:-0.0.0.0}:443:443"
       - "${BIND_ADDRESS:-0.0.0.0}:80:80"
@@ -46,6 +53,7 @@ services:
     build: { context: ./web }
     image: mammomesh/web:${MAMMOMESH_VERSION:-dev}
     restart: unless-stopped
+    logging: *logging
     environment:
       NUXT_PUBLIC_SITE_ADDRESS: ${SITE_ADDRESS:-mammomesh.lan}
     networks: [app]
@@ -93,6 +101,7 @@ services:
   postgres:
     image: postgres:18-alpine
     restart: unless-stopped
+    logging: *logging
     environment:
       POSTGRES_DB: mammomesh
       POSTGRES_USER: mammomesh
@@ -110,6 +119,7 @@ services:
   redis:
     image: redis:8-alpine
     restart: unless-stopped
+    logging: *logging
     # AOF : aucune tâche ni compteur perdu après un redémarrage.
     command: ["redis-server", "--appendonly", "yes", "--save", ""]
     volumes:
@@ -125,7 +135,11 @@ services:
     # SeaweedFS (Apache 2.0) remplace MinIO, dont l'édition communautaire n'est plus maintenue.
     image: chrislusf/seaweedfs:4.51
     restart: unless-stopped
-    command: ["server", "-dir=/data", "-s3", "-s3.port=8333", "-ip.bind=0.0.0.0"]
+    logging: *logging
+    # Sans télémétrie ni catalogues Iceberg/Lance (inutiles ici) ; volumes en lecture seule
+    # s'il reste moins de 10 Gio, pour laisser de la place à PostgreSQL sur le même disque.
+    command: ["server", "-dir=/data", "-s3", "-s3.port=8333", "-ip.bind=0.0.0.0", "-master.telemetry=false",
+              "-s3.port.iceberg=0", "-s3.port.lance=0", "-volume.minFreeSpace=10GiB"]
     volumes:
       - s3data:/data
     networks: [data]
@@ -135,6 +149,7 @@ services:
     build: { context: ./deploy/backup }
     image: mammomesh/backup:${MAMMOMESH_VERSION:-dev}
     restart: unless-stopped
+    logging: *logging
     environment:
       PGHOST: postgres
       PGUSER: mammomesh
@@ -153,6 +168,7 @@ services:
     profiles: [obs]
     image: prom/prometheus:v3.15.1
     restart: unless-stopped
+    logging: *logging
     volumes:
       - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - promdata:/prometheus
@@ -162,6 +178,7 @@ services:
     profiles: [obs]
     image: grafana/grafana:13.2.4
     restart: unless-stopped
+    logging: *logging
     environment:
       GF_SERVER_ROOT_URL: https://${SITE_ADDRESS:-mammomesh.lan}/obs/
       GF_SERVER_SERVE_FROM_SUB_PATH: "true"

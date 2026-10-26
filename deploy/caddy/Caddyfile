@@ -2,6 +2,10 @@
 # Claude Code (Node.js) doit faire confiance à cette autorité : voir README, NODE_EXTRA_CA_CERTS.
 {
 	admin off
+	# HTTP/3 (UDP) inutile sur le réseau local et non publié par compose : HTTP/1.1 et HTTP/2 seulement.
+	servers {
+		protocols h1 h2
+	}
 }
 
 {$SITE_ADDRESS:mammomesh.lan} {

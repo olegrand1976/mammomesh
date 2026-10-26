@@ -54,6 +54,12 @@ Rôles : `admin`, `responsable_scientifique`, `data_manager`, `radiologue`, `lec
 
 Profils optionnels : `COMPOSE_PROFILES=obs` (Prometheus + Grafana sous `/obs/`), `backup` (sauvegarde restic quotidienne vers `BACKUP_DIR`).
 
+### Hôte
+
+- Espace disque : garder plus de 10 Gio libres. En dessous, SeaweedFS passe ses volumes en lecture seule pour protéger PostgreSQL ; au-delà de 95 % d'occupation, il l'écrit toutes les 5 s dans son journal. Les journaux des conteneurs sont bornés à 30 Mo par service.
+- Redis : `sudo sysctl -w vm.overcommit_memory=1` (et la même ligne dans `/etc/sysctl.d/99-redis.conf`), sinon la réécriture de l'AOF peut échouer.
+- Messages sans conséquence au démarrage : locales absentes (PostgreSQL Alpine), `certutil` absent (Caddy), IAM/STS/SSE non configurés (SeaweedFS : le stockage S3 ne sert pas encore ; ses accès seront protégés quand les images arriveront, au jalon 1). SeaweedFS et Redis restent sur un réseau interne sans accès extérieur.
+
 ### Certificat
 
 Caddy signe le site avec son autorité interne. Pour que navigateurs et Claude Code lui fassent confiance :

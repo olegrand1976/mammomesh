@@ -2,7 +2,9 @@
 package config
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"net/url"
 	"os"
 	"strconv"
@@ -108,7 +110,11 @@ func secret(key string) (string, error) {
 	if path := os.Getenv(key + "_FILE"); path != "" {
 		b, err := os.ReadFile(path)
 		if err != nil {
-			return "", fmt.Errorf("secret %s illisible : %w", key, err)
+			hint := ""
+			if errors.Is(err, fs.ErrPermission) {
+				hint = " (le conteneur tourne sans root : rendre le fichier lisible, par exemple en relançant scripts/init-secrets.sh)"
+			}
+			return "", fmt.Errorf("secret %s illisible : %w%s", key, err, hint)
 		}
 		return strings.TrimSpace(string(b)), nil
 	}

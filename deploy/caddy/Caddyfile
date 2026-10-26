@@ -1,0 +1,34 @@
+# Caddy : seule porte d'entrée, TLS par l'autorité interne de Caddy (réseau local).
+# Claude Code (Node.js) doit faire confiance à cette autorité : voir README, NODE_EXTRA_CA_CERTS.
+{
+	admin off
+}
+
+{$SITE_ADDRESS:mammomesh.lan} {
+	tls internal
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy same-origin
+		-Server
+	}
+
+	# API, flux SSE et serveur MCP. Les réponses text/event-stream sont transmises sans tampon.
+	@api path /api/* /mcp /mcp/*
+	handle @api {
+		reverse_proxy {$API_UPSTREAM:api:8080}
+	}
+
+	# Grafana (profil obs), réservé à l'administrateur.
+	handle /obs/* {
+		reverse_proxy {$GRAFANA_UPSTREAM:grafana:3000}
+	}
+
+	# Page de présentation et interface de suivi (Nuxt).
+	handle {
+		encode zstd gzip
+		reverse_proxy {$WEB_UPSTREAM:web:3000}
+	}
+}

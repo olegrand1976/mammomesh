@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "mammomesh": {
+      "type": "http",
+      "url": "${MAMMOMESH_URL:-https://mammomesh.lan}/mcp",
+      "headers": {
+        "Authorization": "Bearer ${MAMMOMESH_MCP_TOKEN}"
+      }
+    }
+  }
+}

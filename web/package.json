@@ -1,0 +1,25 @@
+{
+  "name": "mammomesh-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "typecheck": "nuxt typecheck",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "@pinia/nuxt": "^1.0.3",
+    "echarts": "^6.1.0",
+    "nuxt": "^4.6.2",
+    "pinia": "^4.1.0",
+    "vue-echarts": "^8.3.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^5.9.3",
+    "vue-tsc": "^3.3.13"
+  }
+}

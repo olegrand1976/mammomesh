@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__mammomesh__campagnes_lister",
+      "mcp__mammomesh__campagne_etat",
+      "mcp__mammomesh__front_pareto",
+      "mcp__mammomesh__individu_fiche",
+      "mcp__mammomesh__individus_comparer",
+      "mcp__mammomesh__journal_lire",
+      "mcp__mammomesh__config_brouillon",
+      "mcp__mammomesh__config_verifier"
+    ],
+    "ask": [
+      "mcp__mammomesh__campagne_lancer",
+      "mcp__mammomesh__campagne_reglage"
+    ]
+  }
+}

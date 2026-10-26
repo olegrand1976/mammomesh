@@ -1,0 +1,195 @@
+# MammoMesh : pile complète sur un serveur (section « Déploiement Docker » de la note de conception).
+# Seul Caddy publie un port, sur le réseau local. Base, Redis et stockage restent sur un réseau interne.
+#
+#   ./scripts/init-secrets.sh          # une fois : génère les secrets dans ./secrets
+#   docker compose up -d               # pile de base
+#   COMPOSE_PROFILES=obs docker compose up -d     # + Prometheus et Grafana
+#
+# Les services du jalon 1 (engine, triton, trainer, profils nvidia / amd / intel / cpu) s'ajouteront ici.
+
+name: mammomesh
+
+x-backend: &backend
+  build:
+    context: ./backend
+  image: mammomesh/backend:${MAMMOMESH_VERSION:-dev}
+  restart: unless-stopped
+  environment: &backend-env
+    POSTGRES_HOST: postgres
+    POSTGRES_DB: mammomesh
+    POSTGRES_USER: mammomesh
+    POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    MCP_TOKEN_PEPPER_FILE: /run/secrets/mcp_token_pepper
+    REDIS_URL: redis://redis:6379/0
+    LOG_LEVEL: ${LOG_LEVEL:-info}
+  secrets: [postgres_password, mcp_token_pepper]
+
+services:
+  caddy:
+    image: caddy:2.11
+    restart: unless-stopped
+    ports:
+      - "${BIND_ADDRESS:-0.0.0.0}:443:443"
+      - "${BIND_ADDRESS:-0.0.0.0}:80:80"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-mammomesh.lan}
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [edge, app]
+    depends_on:
+      web: { condition: service_started }
+      api: { condition: service_healthy }
+
+  web:
+    build: { context: ./web }
+    image: mammomesh/web:${MAMMOMESH_VERSION:-dev}
+    restart: unless-stopped
+    environment:
+      NUXT_PUBLIC_SITE_ADDRESS: ${SITE_ADDRESS:-mammomesh.lan}
+    networks: [app]
+
+  api:
+    <<: *backend
+    command: ["api"]
+    environment:
+      <<: *backend-env
+      COOKIE_SECURE: "true"
+      ALLOWED_ORIGINS: https://${SITE_ADDRESS:-mammomesh.lan}
+      COALESCE_INTERVAL: 2s
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/mammomesh", "healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    networks: [app, data, obs]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  orchestrator:
+    <<: *backend
+    command: ["orchestrator"]
+    # Cœurs réservés à la boucle rapide CephaloMesh, à activer sur le serveur cible :
+    # cpuset: "8-63"
+    networks: [data]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  migrate:
+    <<: *backend
+    command: ["migrate"]
+    restart: "no"
+    environment:
+      <<: *backend-env
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD_FILE: /run/secrets/admin_password
+    secrets: [postgres_password, mcp_token_pepper, admin_password]
+    networks: [data]
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mammomesh
+      POSTGRES_USER: mammomesh
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mammomesh -d mammomesh"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks: [data]
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    # AOF : aucune tâche ni compteur perdu après un redémarrage.
+    command: ["redis-server", "--appendonly", "yes", "--save", ""]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    networks: [data]
+
+  s3:
+    # SeaweedFS (Apache 2.0) remplace MinIO, dont l'édition communautaire n'est plus maintenue.
+    image: chrislusf/seaweedfs:4.51
+    restart: unless-stopped
+    command: ["server", "-dir=/data", "-s3", "-s3.port=8333", "-ip.bind=0.0.0.0"]
+    volumes:
+      - s3data:/data
+    networks: [data]
+
+  backup:
+    profiles: [backup]
+    build: { context: ./deploy/backup }
+    image: mammomesh/backup:${MAMMOMESH_VERSION:-dev}
+    restart: unless-stopped
+    environment:
+      PGHOST: postgres
+      PGUSER: mammomesh
+      PGDATABASE: mammomesh
+      PGPASSWORD_FILE: /run/secrets/postgres_password
+      RESTIC_REPOSITORY: /backup/restic
+      RESTIC_PASSWORD_FILE: /run/secrets/restic_password
+      BACKUP_HOUR: ${BACKUP_HOUR:-2}
+    secrets: [postgres_password, restic_password]
+    volumes:
+      # Disque ou NAS hors du serveur, monté sur l'hôte.
+      - ${BACKUP_DIR:-./backup}:/backup
+    networks: [data]
+
+  prometheus:
+    profiles: [obs]
+    image: prom/prometheus:v3.15.1
+    restart: unless-stopped
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - promdata:/prometheus
+    networks: [obs]
+
+  grafana:
+    profiles: [obs]
+    image: grafana/grafana:13.2.4
+    restart: unless-stopped
+    environment:
+      GF_SERVER_ROOT_URL: https://${SITE_ADDRESS:-mammomesh.lan}/obs/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/admin_password
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    secrets: [admin_password]
+    volumes:
+      - grafanadata:/var/lib/grafana
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+    networks: [obs, app]
+
+networks:
+  edge: {}
+  app: { internal: true }
+  data: { internal: true }
+  obs: { internal: true }
+
+volumes:
+  pgdata: {}
+  redisdata: {}
+  s3data: {}
+  caddy_data: {}
+  caddy_config: {}
+  promdata: {}
+  grafanadata: {}
+
+secrets:
+  postgres_password: { file: ./secrets/postgres_password.txt }
+  mcp_token_pepper: { file: ./secrets/mcp_token_pepper.txt }
+  admin_password: { file: ./secrets/admin_password.txt }
+  restic_password: { file: ./secrets/restic_password.txt }

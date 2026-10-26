@@ -16,3 +16,6 @@ web/.data/
 # Divers
 .DS_Store
 *.log
+
+# Redis local
+*.rdb

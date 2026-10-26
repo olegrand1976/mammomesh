@@ -89,7 +89,7 @@ Absents par construction : test caché, jeux externes, promotion, suppression, i
 
 ## Développement
 
-Prérequis : Go 1.24 ou plus, Node 22 ou plus, PostgreSQL 16 ou plus et Redis en local.
+Prérequis : Go 1.27, Node 24 LTS, PostgreSQL 18 et Redis 8 en local.
 
 ```bash
 export DATABASE_URL=postgres://postgres@localhost:5432/mammomesh?sslmode=disable
@@ -115,6 +115,7 @@ Le test de bout en bout (`internal/integration`) remet la base désignée à zé
 
 ## Notes techniques
 
-- `backend/go.mod` reste compatible Go 1.24 ; l'image Docker compile avec Go 1.26. Le SDK MCP (v1.4) passera en v1.8 avec Go ≥ 1.25.
-- Les modules `golang.org/x/*` sont pris sur leurs miroirs GitHub officiels (directives `replace`) : même code, compilable là où `golang.org` est filtré.
+- Versions (mise à jour du 26 octobre 2026) : Go 1.27, SDK MCP v1.8 (protocole 2026-07-28), pgx 5.11, chi 5.5, go-redis 9.23 ; Nuxt 4.6, Pinia 4.1, ECharts 6.1, TypeScript 6.0 ; Node 24 LTS ; PostgreSQL 18, Redis 8, Caddy 2.11, SeaweedFS 4.51, Prometheus 3.15, Grafana 13.2.
+- TypeScript reste en 6.0 : la version 7 (réécrite en Go) n'est pas encore prise en charge par vue-tsc, qui sert au contrôle des types.
+- Les modules `golang.org/x/*`, `go.uber.org/atomic` et `go.yaml.in/yaml/v3` sont pris sur leurs dépôts GitHub officiels (directives `replace`) : même code, compilable là où ces domaines sont filtrés.
 - MinIO est remplacé par SeaweedFS (édition communautaire de MinIO archivée en 2026).

@@ -48,9 +48,9 @@ const status = (t: MCPToken) => (t.revoked_at ? 'révoqué' : new Date(t.expires
 
     <section class="card">
       <form class="row" @submit.prevent="create">
-        <div class="field grow"><label>Nom du jeton</label><input v-model="name" required></div>
-        <div class="field"><label>Portée</label>
-          <select v-model="scope">
+        <div class="field grow"><label for="jeton-1">Nom du jeton</label><input id="jeton-1" v-model="name" required></div>
+        <div class="field"><label for="jeton-2">Portée</label>
+          <select id="jeton-2" v-model="scope">
             <option value="lecture">Lecture</option>
             <option value="proposition" :disabled="!session.permissions?.jetons_proposition">Proposition et action</option>
           </select>

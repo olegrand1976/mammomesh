@@ -24,6 +24,11 @@ export const useSessionStore = defineStore('session', () => {
     await refresh()
   }
 
+  async function changePassword(actuel: string, nouveau: string) {
+    await api('/auth/password', { method: 'POST', body: { actuel, nouveau } })
+    await refresh()
+  }
+
   async function logout() {
     await api('/auth/logout', { method: 'POST' }).catch(() => {})
     user.value = null
@@ -31,5 +36,5 @@ export const useSessionStore = defineStore('session', () => {
     await navigateTo('/login')
   }
 
-  return { user, permissions, refresh, login, logout }
+  return { user, permissions, refresh, login, changePassword, logout }
 })

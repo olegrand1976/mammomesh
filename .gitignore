@@ -19,3 +19,8 @@ web/.data/
 
 # Redis local
 *.rdb
+
+# Tests
+backend/bin/
+web/test-results/
+web/playwright-report/

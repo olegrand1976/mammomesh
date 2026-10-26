@@ -42,3 +42,20 @@ func TestRoles(t *testing.T) {
 		t.Fatal("droits de proposition incorrects")
 	}
 }
+
+func TestDefaultPassword(t *testing.T) {
+	if _, err := HashPassword(DefaultAdminPassword); err != ErrWeakPassword {
+		t.Fatalf("le mot de passe par défaut ne doit pas passer la règle : %v", err)
+	}
+	h, err := HashDefaultPassword()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok, _ := CheckPassword(h, DefaultAdminPassword); !ok {
+		t.Fatal("empreinte du mot de passe par défaut invalide")
+	}
+	// La longueur se compte en caractères, pas en octets.
+	if _, err := HashPassword("éééééééééée"); err != ErrWeakPassword {
+		t.Fatalf("11 caractères accentués acceptés : %v", err)
+	}
+}

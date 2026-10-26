@@ -5,16 +5,10 @@ package integration
 
 import (
 	"bufio"
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
-	"net/http/cookiejar"
-	"net/http/httptest"
-	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -22,13 +16,8 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/olegrand1976/mammomesh/backend/internal/api"
 	"github.com/olegrand1976/mammomesh/backend/internal/auth"
-	"github.com/olegrand1976/mammomesh/backend/internal/config"
-	"github.com/olegrand1976/mammomesh/backend/internal/db"
 	"github.com/olegrand1976/mammomesh/backend/internal/orchestrator"
-	"github.com/olegrand1976/mammomesh/backend/internal/realtime"
-	"github.com/olegrand1976/mammomesh/backend/internal/store"
 )
 
 type sseEvent struct {
@@ -71,73 +60,11 @@ func (b bearer) RoundTrip(r *http.Request) (*http.Response, error) {
 }
 
 func TestEndToEnd(t *testing.T) {
-	dsn := os.Getenv("DATABASE_URL_TEST")
-	if dsn == "" {
-		t.Skip("DATABASE_URL_TEST non défini")
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
-	defer cancel()
-	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-
-	pool, err := db.Open(ctx, dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer pool.Close()
-	if _, err := pool.Exec(ctx, `DROP SCHEMA public CASCADE; CREATE SCHEMA public;`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.Migrate(ctx, pool); err != nil {
-		t.Fatal(err)
-	}
-	st := store.New(pool, "poivre-de-test")
-	if _, err := st.CreateUser(ctx, "admin", "Admin", "mot-de-passe-admin", auth.RoleAdmin); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := st.CreateUser(ctx, "lecteur", "Lecteur", "mot-de-passe-lecteur", auth.RoleReader); err != nil {
-		t.Fatal(err)
-	}
-
-	cfg := config.Config{SessionTTL: time.Hour, CoalesceInterval: 150 * time.Millisecond, MCPTokenPepper: "poivre-de-test"}
-	hub := realtime.NewHub(st, log, cfg.CoalesceInterval)
-	hubCtx, hubStop := context.WithCancel(ctx)
-	defer hubStop() // avant pool.Close : le relais rend sa connexion d'écoute
-	go hub.Run(hubCtx)
-	srv := httptest.NewServer(api.New(cfg, st, hub, log, api.Limits{LoginPerUser: auth.NewLimiter(nil, 10, time.Minute),
-		LoginPerIP: auth.NewLimiter(nil, 50, time.Minute), MCPPerToken: auth.NewLimiter(nil, 1000, time.Minute)}).Router())
-	defer srv.Close()
-
-	login := func(user, pw string) *http.Client {
-		jar, _ := cookiejar.New(nil)
-		c := &http.Client{Jar: jar}
-		resp, err := c.Post(srv.URL+"/api/auth/login", "application/json", strings.NewReader(fmt.Sprintf(`{"username":%q,"password":%q}`, user, pw)))
-		if err != nil || resp.StatusCode != 200 {
-			t.Fatalf("connexion %s : %v %v", user, err, resp.Status)
-		}
-		resp.Body.Close()
-		return c
-	}
-	call := func(c *http.Client, method, path string, body any, want int) map[string]any {
-		t.Helper()
-		var rd io.Reader
-		if body != nil {
-			b, _ := json.Marshal(body)
-			rd = bytes.NewReader(b)
-		}
-		req, _ := http.NewRequestWithContext(ctx, method, srv.URL+path, rd)
-		req.Header.Set("Content-Type", "application/json")
-		resp, err := c.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer resp.Body.Close()
-		var out map[string]any
-		_ = json.NewDecoder(resp.Body).Decode(&out)
-		if resp.StatusCode != want {
-			t.Fatalf("%s %s : statut %d, attendu %d (%v)", method, path, resp.StatusCode, want, out)
-		}
-		return out
-	}
+	e := newEnv(t, nil)
+	ctx, pool, st, srv, log := e.ctx, e.pool, e.st, e.srv, e.log
+	login, call := e.login, e.call
+	e.user("admin", "mot-de-passe-admin", auth.RoleAdmin)
+	e.user("lecteur", "mot-de-passe-lecteur", auth.RoleReader)
 
 	// Mauvais mot de passe refusé, session absente refusée.
 	resp, _ := http.Post(srv.URL+"/api/auth/login", "application/json", strings.NewReader(`{"username":"admin","password":"faux-mot-de-passe"}`))
@@ -248,6 +175,31 @@ collect:
 		t.Fatalf("reprise incorrecte :\nreçu    %v\nattendu %v", got, ids[3:])
 	}
 
+	// Lectures de l'interface : liste, front (et front précédent), journal paginé, fiche, brouillon.
+	if list := call(reader, "GET", "/api/campaigns", nil, 200)["campaigns"].([]any); len(list) != 1 {
+		t.Fatalf("liste des campagnes : %v", list)
+	}
+	fr := call(reader, "GET", fmt.Sprintf("/api/campaigns/%d/front", cid), nil, 200)
+	frontList := fr["front"].([]any)
+	if len(frontList) < 2 || fr["previous"] == nil {
+		t.Fatalf("front : %d individus, précédent %v", len(frontList), fr["previous"] != nil)
+	}
+	evs := call(reader, "GET", fmt.Sprintf("/api/campaigns/%d/events?limit=3&order=asc", cid), nil, 200)["events"].([]any)
+	if len(evs) != 3 || evs[0].(map[string]any)["id"].(float64) >= evs[2].(map[string]any)["id"].(float64) {
+		t.Fatalf("journal paginé : %v", evs)
+	}
+	ind := frontList[0].(map[string]any)
+	indID, indB := int64(ind["id"].(float64)), int64(frontList[1].(map[string]any)["id"].(float64))
+	fiche := call(reader, "GET", fmt.Sprintf("/api/individuals/%d", indID), nil, 200)["individual"].(map[string]any)
+	if fiche["name"] != ind["name"] || fiche["genome"] == nil {
+		t.Fatalf("fiche individu : %v", fiche)
+	}
+	call(reader, "GET", "/api/individuals/999999", nil, 404)
+	call(reader, "GET", "/api/campaigns/abc", nil, 400)
+	if d := call(reader, "GET", fmt.Sprintf("/api/drafts/%d", draftID), nil, 200)["draft"].(map[string]any); d["verified_ok"] != true {
+		t.Fatalf("brouillon relu : %v", d)
+	}
+
 	// Réglage à chaud refusé au lecteur, état terminé non modifiable.
 	call(reader, "POST", fmt.Sprintf("/api/campaigns/%d/control", cid), map[string]any{"action": "pause"}, 403)
 	call(admin, "POST", fmt.Sprintf("/api/campaigns/%d/control", cid), map[string]any{"action": "pause"}, 409)
@@ -291,6 +243,16 @@ collect:
 	if front.IsError || len(front.StructuredContent.(map[string]any)["individus"].([]any)) == 0 {
 		t.Fatalf("front_pareto : %+v", front)
 	}
+	if res := tool(rs, "individu_fiche", map[string]any{"campagne_id": cid, "nom": ind["name"]}); res.IsError ||
+		int64(res.StructuredContent.(map[string]any)["id"].(float64)) != indID {
+		t.Fatalf("individu_fiche par nom : %+v", res)
+	}
+	if res := tool(rs, "individus_comparer", map[string]any{"a": indID, "b": indB}); res.IsError {
+		t.Fatalf("individus_comparer : %v", res.Content)
+	}
+	if res := tool(rs, "individu_fiche", map[string]any{"individu_id": 999999}); !res.IsError {
+		t.Fatal("individu inexistant trouvé")
+	}
 	j := tool(rs, "journal_lire", map[string]any{"campagne_id": cid, "types": []string{"nouveau_meilleur"}, "limite": 2})
 	if lines := j.StructuredContent.(map[string]any)["evenements"].([]any); len(lines) == 0 || len(lines) > 2 {
 		t.Fatalf("journal_lire : %v", lines)
@@ -324,6 +286,19 @@ collect:
 		t.Fatalf("campagne_lancer : %v", launched.Content)
 	}
 	newID := int64(launched.StructuredContent.(map[string]any)["id"].(float64))
+	// Réglages par l'interface sur la campagne lancée par MCP (orchestrateur arrêté : elle attend).
+	if st := call(admin, "POST", fmt.Sprintf("/api/campaigns/%d/control", newID), map[string]any{"action": "pause"}, 200)["campaign"].(map[string]any)["state"]; st != "en_pause" {
+		t.Fatalf("pause : %v", st)
+	}
+	call(admin, "POST", fmt.Sprintf("/api/campaigns/%d/control", newID), map[string]any{"action": "pause"}, 409)
+	call(admin, "POST", fmt.Sprintf("/api/campaigns/%d/control", newID), map[string]any{"action": "reprise"}, 200)
+	before := call(admin, "GET", fmt.Sprintf("/api/campaigns/%d", newID), nil, 200)["campaign"].(map[string]any)["budget_total"].(float64)
+	after := call(admin, "POST", fmt.Sprintf("/api/campaigns/%d/control", newID), map[string]any{"action": "budget", "hausse_budget": 5}, 200)["campaign"].(map[string]any)["budget_total"].(float64)
+	if after != before+5 {
+		t.Fatalf("budget : %v puis %v", before, after)
+	}
+	call(admin, "POST", fmt.Sprintf("/api/campaigns/%d/control", newID), map[string]any{"action": "budget", "hausse_budget": -1}, 400)
+	call(admin, "POST", fmt.Sprintf("/api/campaigns/%d/control", newID), map[string]any{"action": "inconnue"}, 400)
 	if res := tool(ps, "campagne_reglage", map[string]any{"campagne_id": newID, "action": "arret"}); res.IsError {
 		t.Fatalf("campagne_reglage : %v", res.Content)
 	}

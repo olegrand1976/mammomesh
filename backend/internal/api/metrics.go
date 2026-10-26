@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/olegrand1976/mammomesh/backend/internal/auth"
 	"github.com/olegrand1976/mammomesh/backend/internal/realtime"
 )
 
 // MetricsHandler expose les indicateurs au format texte de Prometheus, sur un port interne.
-func MetricsHandler(hub *realtime.Hub) http.Handler {
+func MetricsHandler(hub *realtime.Hub, rdb *auth.Redis) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 		st := &hub.Stats
@@ -20,5 +21,10 @@ func MetricsHandler(hub *realtime.Hub) http.Handler {
 		write("mammomesh_sse_coalesced_total", "counter", "Avis de progression fusionnés avant envoi.", st.Coalesced.Load())
 		write("mammomesh_sse_slow_disconnects_total", "counter", "Navigateurs déconnectés pour lenteur.", st.SlowDisconnect.Load())
 		write("mammomesh_notify_lag_ms", "gauge", "Dernier délai entre l'écriture d'un événement et sa diffusion.", st.NotifyLagMs.Load())
+		var up int64
+		if rdb.State() == "ok" {
+			up = 1
+		}
+		write("mammomesh_redis_up", "gauge", "1 si les compteurs vivent dans Redis, 0 en repli mémoire ou sans Redis.", up)
 	})
 }

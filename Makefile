@@ -1,5 +1,5 @@
 # Raccourcis de développement. La production passe par docker compose (voir README).
-.PHONY: secrets up down logs test test-backend test-web dev-api dev-orchestrator dev-web ca
+.PHONY: secrets up down logs test test-backend test-web e2e dev-api dev-orchestrator dev-web ca
 
 secrets:
 	./scripts/init-secrets.sh
@@ -20,12 +20,20 @@ ca:
 
 test: test-backend test-web
 
-# DATABASE_URL_TEST active le test de bout en bout (la base désignée est remise à zéro).
+# Tests unitaires Go ; DATABASE_URL_TEST ajoute les tests d'intégration (base remise à zéro),
+# REDIS_URL_TEST ceux qui passent par un vrai Redis.
 test-backend:
 	cd backend && go vet ./... && go test -count=1 ./...
 
+# Types, tests unitaires Vitest (stores, middleware), compilation.
 test-web:
-	cd web && npx nuxt typecheck && npm run build
+	cd web && npx nuxt typecheck && npm test && npm run build
+
+# Parcours navigateur (Playwright) sur une pile complète démarrée à part : E2E_DATABASE_URL obligatoire
+# (base jetable, remise à zéro), E2E_REDIS_URL facultatif. Navigateur : npx playwright install chromium.
+e2e:
+	cd backend && CGO_ENABLED=0 go build -o bin/mammomesh ./cmd/mammomesh
+	cd web && npm run build && npx playwright test
 
 dev-api:
 	cd backend && go run ./cmd/mammomesh api

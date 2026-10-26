@@ -25,11 +25,28 @@ const (
 
 var errBadHash = errors.New("empreinte de mot de passe invalide")
 
+// DefaultAdminPassword est le mot de passe du premier administrateur quand aucun n'est fourni.
+// Il échappe à la règle des 12 caractères, mais le compte doit le changer à la première connexion.
+const DefaultAdminPassword = "admin$1"
+
+// MinPasswordLen est la longueur minimale d'un mot de passe choisi.
+const MinPasswordLen = 12
+
+// ErrWeakPassword signale un mot de passe trop court.
+var ErrWeakPassword = errors.New("le mot de passe doit compter au moins 12 caractères")
+
 // HashPassword renvoie une empreinte au format PHC : $argon2id$v=19$m=…,t=…,p=…$sel$clé.
 func HashPassword(password string) (string, error) {
-	if len(password) < 12 {
-		return "", errors.New("le mot de passe doit compter au moins 12 caractères")
+	if len([]rune(password)) < MinPasswordLen {
+		return "", ErrWeakPassword
 	}
+	return hashPassword(password)
+}
+
+// HashDefaultPassword hache le mot de passe par défaut, sans la règle de longueur.
+func HashDefaultPassword() (string, error) { return hashPassword(DefaultAdminPassword) }
+
+func hashPassword(password string) (string, error) {
 	salt := make([]byte, saltLen)
 	if _, err := rand.Read(salt); err != nil {
 		return "", err

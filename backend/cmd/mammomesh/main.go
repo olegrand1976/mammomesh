@@ -107,12 +107,23 @@ func runMigrate(ctx context.Context, cfg config.Config, log *slog.Logger) error 
 	if err != nil {
 		return err
 	}
-	if n == 0 && cfg.AdminUsername != "" && cfg.AdminPassword != "" {
-		if _, err := st.CreateUser(ctx, cfg.AdminUsername, "", cfg.AdminPassword, auth.RoleAdmin); err != nil {
+	if n > 0 {
+		return nil
+	}
+	// Premier administrateur : ADMIN_PASSWORD s'il est fourni, sinon le mot de passe par défaut,
+	// à changer à la première connexion (l'interface l'exige).
+	if cfg.AdminPassword == "" || cfg.AdminPassword == auth.DefaultAdminPassword {
+		if _, err := st.CreateDefaultAdmin(ctx, cfg.AdminUsername); err != nil {
 			return fmt.Errorf("premier administrateur : %w", err)
 		}
-		log.Info("premier administrateur créé", "identifiant", cfg.AdminUsername)
+		log.Warn("premier administrateur créé avec le mot de passe par défaut : à changer à la première connexion",
+			"identifiant", cfg.AdminUsername)
+		return nil
 	}
+	if _, err := st.CreateUser(ctx, cfg.AdminUsername, "", cfg.AdminPassword, auth.RoleAdmin); err != nil {
+		return fmt.Errorf("premier administrateur : %w", err)
+	}
+	log.Info("premier administrateur créé", "identifiant", cfg.AdminUsername)
 	return nil
 }
 
@@ -123,28 +134,20 @@ func runAPI(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 	}
 	defer st.Pool.Close()
 
-	var rdb *redis.Client
-	if opt, err := redis.ParseURL(cfg.RedisURL); err == nil {
-		// Réseau local : une réponse arrive en quelques ms ; au-delà, on bascule vite en mémoire.
-		opt.DialTimeout, opt.ReadTimeout, opt.WriteTimeout = 300*time.Millisecond, 300*time.Millisecond, 300*time.Millisecond
-		opt.MaxRetries, opt.DialerRetries = -1, 1 // pas de nouvel essai : le limiteur a son propre repli
-		rdb = redis.NewClient(opt)
-		if err := rdb.Ping(ctx).Err(); err != nil {
-			log.Warn("Redis injoignable : limitation des tentatives en mémoire", "err", err)
-		}
-		defer rdb.Close()
-	}
+	rdb, closeRedis := openRedis(ctx, cfg, log)
+	defer closeRedis()
 
 	hub := realtime.NewHub(st, log, cfg.CoalesceInterval)
 	go hub.Run(ctx)
 
 	srv := api.New(cfg, st, hub, log, api.Limits{
+		Redis:        rdb,
 		LoginPerUser: auth.NewLimiter(rdb, 10, 15*time.Minute), // 10 tentatives par identifiant et par 15 minutes
 		LoginPerIP:   auth.NewLimiter(rdb, 50, 15*time.Minute), // 50 par adresse : un poste partagé reste utilisable
 		MCPPerToken:  auth.NewLimiter(rdb, 120, time.Minute),   // 120 appels MCP par minute et par jeton
 	})
 	httpSrv := &http.Server{Addr: cfg.ListenAddr, Handler: srv.Router(), ReadHeaderTimeout: 10 * time.Second}
-	metricsSrv := &http.Server{Addr: cfg.MetricsAddr, Handler: api.MetricsHandler(hub), ReadHeaderTimeout: 5 * time.Second}
+	metricsSrv := &http.Server{Addr: cfg.MetricsAddr, Handler: api.MetricsHandler(hub, rdb), ReadHeaderTimeout: 5 * time.Second}
 
 	errc := make(chan error, 2)
 	go func() { errc <- httpSrv.ListenAndServe() }()
@@ -216,6 +219,33 @@ func runMCPStdio(ctx context.Context, cfg config.Config) error {
 		return errors.New("MAMMOMESH_MCP_TOKEN absent ou invalide")
 	}
 	return mcpserver.NewServer(st, p).Run(ctx, &mcp.StdioTransport{})
+}
+
+// openRedis prépare le client des compteurs : délais courts et aucun nouvel essai,
+// car le limiteur a son propre repli en mémoire. REDIS_URL vide : pas de Redis.
+func openRedis(ctx context.Context, cfg config.Config, log *slog.Logger) (*auth.Redis, func()) {
+	redis.SetLogger(redisLog{log}) // messages internes de go-redis : niveau debug, pas une ligne par échec
+	if cfg.RedisURL == "" {
+		log.Info("REDIS_URL vide : compteurs de tentatives en mémoire")
+		return auth.NewRedis(nil, log), func() {}
+	}
+	opt, err := redis.ParseURL(cfg.RedisURL)
+	if err != nil {
+		log.Error("REDIS_URL illisible : compteurs en mémoire", "err", err)
+		return auth.NewRedis(nil, log), func() {}
+	}
+	opt.DialTimeout, opt.ReadTimeout, opt.WriteTimeout = 300*time.Millisecond, 300*time.Millisecond, 300*time.Millisecond
+	opt.MaxRetries, opt.DialerRetries = -1, 1
+	c := redis.NewClient(opt)
+	r := auth.NewRedis(c, log)
+	r.Probe(ctx)
+	return r, func() { _ = c.Close() }
+}
+
+type redisLog struct{ log *slog.Logger }
+
+func (l redisLog) Printf(ctx context.Context, format string, v ...any) {
+	l.log.Debug(fmt.Sprintf(format, v...), "source", "go-redis")
 }
 
 func healthcheck(cfg config.Config) {

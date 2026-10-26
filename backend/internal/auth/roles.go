@@ -38,4 +38,6 @@ type User struct {
 	Username    string `json:"username"`
 	DisplayName string `json:"display_name"`
 	Role        string `json:"role"`
+	// MustChangePassword : compte encore au mot de passe par défaut.
+	MustChangePassword bool `json:"must_change_password"`
 }

@@ -42,8 +42,8 @@ cp .env.example .env          # adapter SITE_ADDRESS et BIND_ADDRESS
 docker compose up -d --build
 ```
 
-- Ouvrir `https://<SITE_ADDRESS>` : page de présentation ; `/login` pour l'interface de suivi.
-- Premier compte : `admin`, mot de passe dans `secrets/admin_password.txt`.
+- Ouvrir `https://<SITE_ADDRESS>` (port 443 ; le port 80 redirige) : page de présentation ; `/login` pour l'interface de suivi. Sur un seul poste : `SITE_ADDRESS=localhost` puis `https://localhost`.
+- Premier compte : `admin` / `admin$1`. L'interface impose de le changer à la première connexion (12 caractères au moins) ; rien d'autre n'est accessible avant. `ADMIN_PASSWORD_RANDOM=1 ./scripts/init-secrets.sh` génère un mot de passe aléatoire à la place.
 - Autres comptes (pas d'inscription libre) :
 
 ```bash
@@ -89,15 +89,15 @@ Absents par construction : test caché, jeux externes, promotion, suppression, i
 
 ## Développement
 
-Prérequis : Go 1.27, Node 24 LTS, PostgreSQL 18 et Redis 8 en local.
+Prérequis : Go 1.27, Node 24 LTS, PostgreSQL 18 ; Redis 8 facultatif.
 
 ```bash
 export DATABASE_URL=postgres://postgres@localhost:5432/mammomesh?sslmode=disable
-export REDIS_URL=redis://localhost:6379/0
-export MCP_TOKEN_PEPPER=dev ADMIN_USERNAME=admin ADMIN_PASSWORD=mot-de-passe-de-dev COOKIE_SECURE=false
+export REDIS_URL=redis://localhost:6379/0   # ou REDIS_URL= (vide) : compteurs en mémoire, sans Redis
+export MCP_TOKEN_PEPPER=dev COOKIE_SECURE=false
 
 cd backend && go run ./cmd/mammomesh migrate   # schéma + compte admin, une fois
-make dev-api            # :8080
+make dev-api            # :8080, compte admin / admin$1 créé par migrate
 make dev-orchestrator
 cd web && npm ci && cd .. && make dev-web      # http://localhost:3000, /api relayé vers :8080
 ```
@@ -106,16 +106,19 @@ Serveur MCP en stdio pour le développement : `MAMMOMESH_MCP_TOKEN=mmk_... go ru
 
 ## Tests
 
-```bash
-cd backend && DATABASE_URL_TEST=postgres://.../mammomesh_test go test ./...
-cd web && npx nuxt typecheck && npm run build
-```
+| Niveau | Commande | Contenu |
+|---|---|---|
+| Unitaires Go | `make test-backend` | mots de passe, limiteur (Redis absent, gelé, rétabli), configuration et secrets, contrôles de configuration, simulation déterministe, SSE, cache MCP |
+| Intégration Go | `DATABASE_URL_TEST=… REDIS_URL_TEST=… make test-backend` | base remise à zéro : compte par défaut et changement imposé, origines, limitation (Redis réel), brouillon → lancement → orchestrateur, SSE et reprise `Last-Event-ID`, réglages, lectures REST, 10 outils MCP par portée, audit, révocation |
+| Unitaires web | `make test-web` | Vitest en environnement Nuxt : stores campagne (flux, dédoublonnage, `resync`) et session, formatage |
+| Bout en bout | `E2E_DATABASE_URL=… make e2e` | Playwright, pile complète (API, orchestrateur, Nuxt, proxy à la place de Caddy, port 14000) : présentation, refus, premier accès, campagne suivie en direct jusqu'à la fin, filtres du journal, jetons MCP, déconnexion, affichage téléphone |
 
-Le test de bout en bout (`internal/integration`) remet la base désignée à zéro, puis vérifie : connexion et refus, brouillon → contrôles → lancement, orchestrateur jusqu'à la fin, flux SSE en direct, reprise exacte par `Last-Event-ID`, droits par rôle, outils MCP par portée de jeton, journal d'audit, révocation.
+La CI lance les quatre niveaux, avec PostgreSQL 18 et Redis 8 en services. Couverture Go mesurée : 82 % des instructions de `internal/`.
 
 ## Notes techniques
 
-- Versions (mise à jour du 26 octobre 2026) : Go 1.27, SDK MCP v1.8 (protocole 2026-07-28), pgx 5.11, chi 5.5, go-redis 9.23 ; Nuxt 4.6, Pinia 4.1, ECharts 6.1, TypeScript 6.0 ; Node 24 LTS ; PostgreSQL 18, Redis 8, Caddy 2.11, SeaweedFS 4.51, Prometheus 3.15, Grafana 13.2.
+- Redis ne sert qu'aux compteurs de tentatives. S'il ne répond pas, l'API passe en mémoire après un essai de 300 ms au plus, réessaie toutes les 30 s et l'écrit une fois dans le journal ; `/api/health` (champ `redis`) et la métrique `mammomesh_redis_up` en donnent l'état.
+- Versions (mise à jour du 26 octobre 2026) : Go 1.27, SDK MCP v1.8 (protocole 2026-07-28), pgx 5.11, chi 5.5, go-redis 9.23 ; Nuxt 4.6, Pinia 4.1, ECharts 6.1, TypeScript 6.0 ; Node 24 LTS, Vitest 5, Playwright 1.64 ; PostgreSQL 18, Redis 8, Caddy 2.11, SeaweedFS 4.51, Prometheus 3.15, Grafana 13.2.
 - TypeScript reste en 6.0 : la version 7 (réécrite en Go) n'est pas encore prise en charge par vue-tsc, qui sert au contrôle des types.
 - Les modules `golang.org/x/*`, `go.uber.org/atomic` et `go.yaml.in/yaml/v3` sont pris sur leurs dépôts GitHub officiels (directives `replace`) : même code, compilable là où ces domaines sont filtrés.
 - MinIO est remplacé par SeaweedFS (édition communautaire de MinIO archivée en 2026).

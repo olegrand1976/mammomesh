@@ -32,6 +32,7 @@ type Server struct {
 	st         *store.Store
 	hub        *realtime.Hub
 	log        *slog.Logger
+	redis      *auth.Redis   // état des compteurs, affiché par /api/health
 	loginLimit *auth.Limiter // par identifiant
 	ipLimit    *auth.Limiter // par adresse : plus large, plusieurs personnes peuvent partager un poste
 	mcpLimit   *auth.Limiter
@@ -39,6 +40,7 @@ type Server struct {
 
 // Limits regroupe les limiteurs de débit.
 type Limits struct {
+	Redis        *auth.Redis // peut être nil : compteurs en mémoire
 	LoginPerUser *auth.Limiter
 	LoginPerIP   *auth.Limiter
 	MCPPerToken  *auth.Limiter
@@ -46,7 +48,7 @@ type Limits struct {
 
 // New crée le serveur d'API.
 func New(cfg config.Config, st *store.Store, hub *realtime.Hub, log *slog.Logger, l Limits) *Server {
-	return &Server{cfg: cfg, st: st, hub: hub, log: log, loginLimit: l.LoginPerUser, ipLimit: l.LoginPerIP, mcpLimit: l.MCPPerToken}
+	return &Server{cfg: cfg, st: st, hub: hub, log: log, redis: l.Redis, loginLimit: l.LoginPerUser, ipLimit: l.LoginPerIP, mcpLimit: l.MCPPerToken}
 }
 
 // Router construit les routes.
@@ -61,7 +63,7 @@ func (s *Server) Router() http.Handler {
 			writeError(w, http.StatusServiceUnavailable, "base injoignable")
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]string{"etat": "ok"})
+		writeJSON(w, http.StatusOK, map[string]string{"etat": "ok", "redis": s.redis.State()})
 	})
 
 	r.Group(func(r chi.Router) {
@@ -72,6 +74,7 @@ func (s *Server) Router() http.Handler {
 		r.Group(func(r chi.Router) {
 			r.Use(s.requireSession)
 			r.Get("/api/me", s.me)
+			r.Post("/api/auth/password", s.changePassword)
 			r.Get("/api/campaigns", s.listCampaigns)
 			r.Get("/api/campaigns/{id}", s.getCampaign)
 			r.Get("/api/campaigns/{id}/generations", s.listGenerations)
@@ -142,6 +145,11 @@ func (s *Server) requireSession(next http.Handler) http.Handler {
 		u, err := s.st.SessionUser(r.Context(), c.Value, s.cfg.SessionTTL)
 		if err != nil {
 			writeError(w, http.StatusUnauthorized, "session expirée")
+			return
+		}
+		// Mot de passe par défaut : seuls le profil et le changement de mot de passe restent ouverts.
+		if u.MustChangePassword && r.URL.Path != "/api/me" && r.URL.Path != "/api/auth/password" {
+			writeError(w, http.StatusForbidden, "changez d'abord le mot de passe par défaut")
 			return
 		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userKey{}, u)))
@@ -227,6 +235,35 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{Name: cookieName, Value: "", Path: "/", HttpOnly: true,
 		Secure: s.cfg.CookieSecure, SameSite: http.SameSiteStrictMode, MaxAge: -1})
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) changePassword(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Current string `json:"actuel"`
+		Next    string `json:"nouveau"`
+	}
+	if !readJSON(w, r, &in) {
+		return
+	}
+	u, ctx := userFrom(r.Context()), r.Context()
+	key := "password:user:" + strconv.FormatInt(u.ID, 10)
+	if !s.loginLimit.Allow(ctx, key) {
+		writeError(w, http.StatusTooManyRequests, "trop de tentatives ; réessayer dans 15 minutes")
+		return
+	}
+	c, _ := r.Cookie(cookieName)
+	switch err := s.st.ChangePassword(ctx, u.ID, in.Current, in.Next, c.Value); {
+	case errors.Is(err, store.ErrNotFound):
+		writeError(w, http.StatusForbidden, "mot de passe actuel incorrect")
+	case errors.Is(err, auth.ErrWeakPassword):
+		writeError(w, http.StatusBadRequest, err.Error())
+	case err != nil:
+		s.fail(w, err)
+	default:
+		s.loginLimit.Reset(ctx, key)
+		s.st.Audit(ctx, u.ID, "interface", "mot_de_passe_change", map[string]any{"ip": clientIP(r)})
+		w.WriteHeader(http.StatusNoContent)
+	}
 }
 
 func (s *Server) me(w http.ResponseWriter, r *http.Request) {
@@ -526,7 +563,10 @@ func (s *Server) revokeToken(w http.ResponseWriter, r *http.Request) {
 // ---------- Utilitaires ----------
 
 func (s *Server) fail(w http.ResponseWriter, err error) {
+	var invalid store.InvalidError
 	switch {
+	case errors.As(err, &invalid):
+		writeError(w, http.StatusBadRequest, invalid.Error())
 	case errors.Is(err, store.ErrNotFound):
 		writeError(w, http.StatusNotFound, "introuvable")
 	case errors.Is(err, store.ErrNotVerified), errors.Is(err, store.ErrAlreadyLaunched), errors.Is(err, store.ErrBadTransition):

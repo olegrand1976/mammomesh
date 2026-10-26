@@ -30,13 +30,13 @@ type Config struct {
 // (secrets Docker) ou, à défaut, dans la variable NOM.
 func Load() (Config, error) {
 	c := Config{
-		RedisURL:         env("REDIS_URL", "redis://redis:6379/0"),
+		RedisURL:         redisURL(),
 		ListenAddr:       env("LISTEN_ADDR", ":8080"),
 		MetricsAddr:      env("METRICS_ADDR", ":9090"),
 		CookieSecure:     envBool("COOKIE_SECURE", true),
 		SessionTTL:       envDuration("SESSION_TTL", 12*time.Hour),
 		CoalesceInterval: envDuration("COALESCE_INTERVAL", 2*time.Second),
-		AdminUsername:    env("ADMIN_USERNAME", ""),
+		AdminUsername:    env("ADMIN_USERNAME", "admin"),
 		LogLevel:         env("LOG_LEVEL", "info"),
 	}
 	if o := env("ALLOWED_ORIGINS", ""); o != "" {
@@ -71,6 +71,14 @@ func Load() (Config, error) {
 		c.DatabaseURL = u.String()
 	}
 	return c, nil
+}
+
+// redisURL : absent, l'adresse de la pile Docker ; défini vide, aucun Redis (compteurs en mémoire).
+func redisURL() string {
+	if v, ok := os.LookupEnv("REDIS_URL"); ok {
+		return strings.TrimSpace(v)
+	}
+	return "redis://redis:6379/0"
 }
 
 func env(key, def string) string {

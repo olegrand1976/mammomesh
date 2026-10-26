@@ -1,0 +1,13 @@
+import { expect, test } from '@playwright/test'
+import { ADMIN, connexion } from './aide'
+
+// Écran de téléphone : aucune barre de défilement horizontale sur les pages de suivi.
+test('suivi lisible sur téléphone @mobile', async ({ page }) => {
+  await connexion(page, ADMIN.nouveau)
+  await expect(page).toHaveURL(/\/suivi$/)
+  const debordement = () => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+  expect(await debordement()).toBeLessThanOrEqual(0)
+  await page.getByRole('row', { name: /Essai e2e/ }).getByRole('link').click()
+  await expect(page.locator('canvas').first()).toBeVisible()
+  expect(await debordement()).toBeLessThanOrEqual(0)
+})

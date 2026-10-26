@@ -18,6 +18,11 @@ import (
 // ErrNotFound : objet absent ou invisible pour l'utilisateur.
 var ErrNotFound = errors.New("introuvable")
 
+// InvalidError : demande mal formée, renvoyée telle quelle à l'utilisateur (HTTP 400).
+type InvalidError string
+
+func (e InvalidError) Error() string { return string(e) }
+
 // Store encapsule le pool de connexions.
 type Store struct {
 	Pool   *pgxpool.Pool
@@ -32,7 +37,7 @@ func New(pool *pgxpool.Pool, pepper string) *Store { return &Store{Pool: pool, P
 // CreateUser ajoute un compte (commande d'administration, pas d'inscription libre).
 func (s *Store) CreateUser(ctx context.Context, username, displayName, password, role string) (int64, error) {
 	if !auth.ValidRole(role) {
-		return 0, errors.New("rôle inconnu")
+		return 0, InvalidError("rôle inconnu")
 	}
 	hash, err := auth.HashPassword(password)
 	if err != nil {
@@ -42,6 +47,52 @@ func (s *Store) CreateUser(ctx context.Context, username, displayName, password,
 	err = s.Pool.QueryRow(ctx, `INSERT INTO users (username, display_name, password_hash, role)
 		VALUES ($1, $2, $3, $4) RETURNING id`, username, displayName, hash, role).Scan(&id)
 	return id, err
+}
+
+// CreateDefaultAdmin crée le premier administrateur avec le mot de passe par défaut, à changer.
+func (s *Store) CreateDefaultAdmin(ctx context.Context, username string) (int64, error) {
+	hash, err := auth.HashDefaultPassword()
+	if err != nil {
+		return 0, err
+	}
+	var id int64
+	err = s.Pool.QueryRow(ctx, `INSERT INTO users (username, password_hash, role, must_change_password)
+		VALUES ($1, $2, 'admin', TRUE) RETURNING id`, username, hash).Scan(&id)
+	return id, err
+}
+
+// ErrSamePassword : le nouveau mot de passe reprend l'ancien.
+var ErrSamePassword error = InvalidError("le nouveau mot de passe doit différer de l'actuel")
+
+// ChangePassword vérifie le mot de passe actuel, enregistre le nouveau (12 caractères au moins)
+// et ferme les autres sessions du compte ; keepToken est la session en cours.
+func (s *Store) ChangePassword(ctx context.Context, userID int64, current, next, keepToken string) error {
+	var hash string
+	if err := s.Pool.QueryRow(ctx, `SELECT password_hash FROM users WHERE id=$1 AND active`, userID).Scan(&hash); err != nil {
+		return err
+	}
+	if ok, err := auth.CheckPassword(hash, current); err != nil || !ok {
+		return ErrNotFound
+	}
+	if next == current {
+		return ErrSamePassword
+	}
+	newHash, err := auth.HashPassword(next)
+	if err != nil {
+		return err
+	}
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	if _, err := tx.Exec(ctx, `UPDATE users SET password_hash=$2, must_change_password=FALSE WHERE id=$1`, userID, newHash); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM sessions WHERE user_id=$1 AND token_hash<>$2`, userID, auth.HashToken(keepToken, s.Pepper)); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // CountUsers sert à créer le premier administrateur.
@@ -55,8 +106,8 @@ func (s *Store) CountUsers(ctx context.Context) (int, error) {
 func (s *Store) Authenticate(ctx context.Context, username, password string) (*auth.User, error) {
 	var u auth.User
 	var hash string
-	err := s.Pool.QueryRow(ctx, `SELECT id, username, display_name, role, password_hash FROM users
-		WHERE username=$1 AND active`, username).Scan(&u.ID, &u.Username, &u.DisplayName, &u.Role, &hash)
+	err := s.Pool.QueryRow(ctx, `SELECT id, username, display_name, role, must_change_password, password_hash FROM users
+		WHERE username=$1 AND active`, username).Scan(&u.ID, &u.Username, &u.DisplayName, &u.Role, &u.MustChangePassword, &hash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Calcul factice : même durée de réponse qu'un compte existant.
 		_, _ = auth.CheckPassword("$argon2id$v=19$m=65536,t=2,p=2$c2VsLWZhY3RpY2U$ZmFjdGljZQ", password)
@@ -90,8 +141,8 @@ func (s *Store) SessionUser(ctx context.Context, token string, idle time.Duratio
 		FROM users u
 		WHERE se.token_hash=$1 AND se.user_id=u.id AND u.active
 		  AND se.expires_at > now() AND se.last_seen_at > now() - $2::interval
-		RETURNING u.id, u.username, u.display_name, u.role`,
-		auth.HashToken(token, s.Pepper), idle.String()).Scan(&u.ID, &u.Username, &u.DisplayName, &u.Role)
+		RETURNING u.id, u.username, u.display_name, u.role, u.must_change_password`,
+		auth.HashToken(token, s.Pepper), idle.String()).Scan(&u.ID, &u.Username, &u.DisplayName, &u.Role, &u.MustChangePassword)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -401,7 +452,7 @@ func (s *Store) Control(ctx context.Context, id int64, action string, budgetIncr
 			next, msg = "arretee", "Campagne arrêtée à la demande, génération "+itoa(c.Generation)+"."
 		case "budget":
 			if budgetIncrease <= 0 {
-				return errors.New("le budget ne peut qu'augmenter")
+				return InvalidError("le budget ne peut qu'augmenter")
 			}
 			if _, err := tx.Exec(ctx, `UPDATE campaigns SET budget_total=budget_total+$2, updated_at=now() WHERE id=$1`, id, budgetIncrease); err != nil {
 				return err
@@ -413,7 +464,7 @@ func (s *Store) Control(ctx context.Context, id int64, action string, budgetIncr
 			out, err = scanCampaign(tx.QueryRow(ctx, `SELECT `+campaignCols+` FROM campaigns WHERE id=$1`, id))
 			return err
 		default:
-			return errors.New("action inconnue : pause, reprise, arret ou budget")
+			return InvalidError("action inconnue : pause, reprise, arret ou budget")
 		}
 		if _, err := tx.Exec(ctx, `UPDATE campaigns SET state=$2, updated_at=now(),
 			finished_at = CASE WHEN $2='arretee' THEN now() ELSE finished_at END WHERE id=$1`, id, next); err != nil {

@@ -72,3 +72,16 @@ func TestDiffEmptyIsArray(t *testing.T) {
 		t.Fatalf("diff vide : %s", b)
 	}
 }
+
+// Le budget arrête après la génération qui l'atteint : 500 individus (0,97 cœur-h) et 50 cœur-h → 52.
+func TestLastGenerationInBudget(t *testing.T) {
+	c := Default()
+	c.Evolution.Population = 500
+	if g := LastGenerationInBudget(c); g != 52 {
+		t.Fatalf("dernière génération : %d", g)
+	}
+	c.Evolution.BudgetCoeurHeure = CostPerGeneration(c) * 10
+	if g := LastGenerationInBudget(c); g != 10 {
+		t.Fatalf("budget exact pour 10 générations : %d", g)
+	}
+}

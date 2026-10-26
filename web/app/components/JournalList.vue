@@ -1,5 +1,6 @@
 <script setup lang="ts">
 // Panneau 3 · Journal en phrases : chaque événement arrive en tête, sans fusion.
+import { decouperMessage } from '~/utils/mutations'
 const store = useCampagneStore()
 const filter = ref('')
 
@@ -8,6 +9,7 @@ const labels: Record<string, string> = {
   nouveau_meilleur: 'Nouveaux meilleurs',
   generation_terminee: 'Générations',
   individus_ecartes: 'Individus écartés',
+  eval_stable: 'Stagnation',
   etat_change: 'Changements d\'état',
 }
 
@@ -19,18 +21,21 @@ const time = (s: string) => new Date(s).toLocaleTimeString('fr-BE')
   <section class="card">
     <div class="row head">
       <h2>Journal</h2>
+      <AideZone zone="journal" />
       <div class="spacer" />
       <select v-model="filter" aria-label="Filtrer le journal">
         <option v-for="(l, k) in labels" :key="k" :value="k">{{ l }}</option>
       </select>
     </div>
+    <div id="aide-journal-ici" />
     <ol class="journal">
       <li v-for="e in items" :key="e.id" :class="e.type">
         <time>{{ time(e.created_at) }}</time>
-        <span>{{ e.message }}</span>
+        <span><template v-for="(m, i) in decouperMessage(e.message)" :key="i"><MutationCode v-if="m.code" :code="m.code" /><template v-else>{{ m.texte }}</template></template></span>
       </li>
       <li v-if="!items.length" class="muted">Aucun événement.</li>
     </ol>
+    <LexiqueMutations />
   </section>
 </template>
 

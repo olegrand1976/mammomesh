@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"reflect"
 	"sort"
 	"strings"
@@ -111,8 +112,8 @@ func Verify(c Config) Verification {
 	v.CoeurHeures = round2(CostPerGeneration(c) * float64(c.Evolution.GenerationsMax))
 	if v.CoeurHeures > c.Evolution.BudgetCoeurHeure {
 		v.Checks = append(v.Checks, Check{Name: "budget", OK: true,
-			Detail: fmt.Sprintf("le plafond de %g cœur-heures arrêtera la campagne avant la génération %d",
-				c.Evolution.BudgetCoeurHeure, int(c.Evolution.BudgetCoeurHeure/CostPerGeneration(c)))})
+			Detail: fmt.Sprintf("le plafond de %g cœur-heures arrêtera la campagne après la génération %d",
+				c.Evolution.BudgetCoeurHeure, LastGenerationInBudget(c))})
 	}
 	return v
 }
@@ -121,6 +122,12 @@ func Verify(c Config) Verification {
 // Repère de la note : 0,2 à 0,5 ms par examen, 20 000 examens par configuration.
 func CostPerGeneration(c Config) float64 {
 	return float64(c.Evolution.Population) * 20000 * 0.35e-3 / 3600
+}
+
+// LastGenerationInBudget : dernière génération jouée avant l'arrêt par le budget. L'orchestrateur ne
+// démarre une génération que si le budget n'est pas encore atteint : la dernière peut le dépasser.
+func LastGenerationInBudget(c Config) int {
+	return int(math.Ceil(c.Evolution.BudgetCoeurHeure/CostPerGeneration(c) - 1e-9))
 }
 
 func round2(f float64) float64 { return float64(int64(f*100+0.5)) / 100 }

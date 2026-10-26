@@ -273,7 +273,7 @@ func (o *Orchestrator) persist(ctx context.Context, c store.Campaign, g int, sta
 		}
 		if improved {
 			if err := ev("nouveau_meilleur", fmt.Sprintf(
-				"Génération %d : nouveau meilleur compromis, %s, sensibilité %s sur E-val au taux de rappel %s %%, %s ms par examen ; mutations %s.",
+				"Génération %d : nouveau meilleur compromis, %s, sensibilité %s sur E-val (mesurée au taux de rappel cible fixé à %s %%), %s ms par examen ; mutations %s.",
 				g, sim.Best.Name, fr(sim.Best.SensitivityEval, 3), fr(cfg.Projet.TauxRappelCible*100, 1), fr(sim.Best.CostMs, 0),
 				strings.Join(sim.Best.Mutations, " › ")),
 				map[string]any{"individu": sim.Best.Name, "sensibilite": sim.Best.SensitivityEval, "cout_ms": sim.Best.CostMs}); err != nil {

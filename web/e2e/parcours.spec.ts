@@ -51,17 +51,17 @@ test('campagne lancée depuis l\'interface et suivie en direct', async ({ page }
   page.on('pageerror', e => erreurs.push(e.message))
   await page.getByRole('link', { name: 'Nouvelle campagne' }).first().click()
   await page.getByLabel('Nom', { exact: true }).fill('Essai e2e')
-  await page.getByLabel('Population').fill('30')
-  await page.getByLabel('Générations au plus').fill('12')
-  await page.getByLabel('Durée d\'un lot (ms)').fill('80')
-  await page.getByLabel('Lots par génération').fill('3')
+  await page.getByLabel('Population', { exact: true }).fill('30')
+  await page.getByLabel('Générations au plus', { exact: true }).fill('12')
+  await page.getByLabel('Durée d\'un lot (ms)', { exact: true }).fill('80')
+  await page.getByLabel('Lots par génération', { exact: true }).fill('3')
   await page.getByRole('button', { name: 'Vérifier la configuration' }).click()
   await expect(page.getByRole('heading', { name: 'Contrôles avant lancement' })).toBeVisible()
   await page.getByRole('button', { name: 'Lancer la campagne' }).click()
 
   await expect(page).toHaveURL(/\/suivi\/campagnes\/\d+$/)
   await expect(page.getByRole('heading', { name: 'Essai e2e' })).toBeVisible()
-  await expect(page.getByText('En direct')).toBeVisible()
+  await expect(page.getByText('En direct', { exact: true })).toBeVisible()
   // Le compteur avance sans recharger la page, jusqu'à la fin.
   await expect(page.getByText(/^[1-9]\d* \/ 12$/)).toBeVisible({ timeout: 20_000 })
   await expect(page.locator('.badge.terminee')).toBeVisible({ timeout: 40_000 })
@@ -74,9 +74,51 @@ test('campagne lancée depuis l\'interface et suivie en direct', async ({ page }
   await expect(journal.first()).toHaveClass(/nouveau_meilleur/)
   expect(await journal.evaluateAll(li => li.every(e => e.classList.contains('nouveau_meilleur')))).toBe(true)
 
+  // Aides de l'écran de suivi : une par zone, toutes ouvertes d'un clic ; un point du front ouvre sa fiche.
+  await expect(page.locator('.aide-zone')).toHaveCount(0)
+  await page.getByRole('button', { name: 'À quoi sert « Front de Pareto » ?' }).click()
+  await expect(page.locator('#aide-front')).toContainText('non dominés')
+  await page.getByRole('button', { name: 'Afficher toutes les aides' }).click()
+  await expect(page.locator('.aide-zone')).toHaveCount(4) // bandeau, progrès, front, journal
+  await page.getByRole('button', { name: 'Masquer les aides' }).click()
+  await expect(page.locator('.aide-zone')).toHaveCount(0)
+  await page.getByText(/^Liste des individus du front/).click()
+  await page.getByRole('button', { name: 'Fiche' }).last().click()
+  await expect(page.getByRole('heading', { name: /^Fiche / })).toBeInViewport()
+  await expect(page.getByRole('rowheader', { name: 'Sensibilité (E-val)' })).toBeVisible()
+
   await page.getByRole('link', { name: 'Campagnes' }).first().click()
   await expect(page.getByRole('row', { name: /Essai e2e/ })).toContainText('Terminée')
   expect(erreurs).toEqual([])
+})
+
+test('aides de l\'écran Nouvelle campagne et effet des réglages', async ({ page }) => {
+  await connexion(page, ADMIN.nouveau)
+  await page.goto('/suivi/nouvelle')
+  const aides = page.locator('.aide')
+  await expect(aides).toHaveCount(16) // un par réglage
+  await expect(aides.first()).toBeHidden()
+  await page.getByRole('button', { name: 'Afficher toutes les aides' }).click()
+  for (const a of await aides.all()) await expect(a).toBeVisible()
+  await page.getByRole('button', { name: 'Masquer les aides' }).click()
+  await expect(aides.first()).toBeHidden()
+
+  // Plancher plus exigeant : alerte, puis levée en allongeant l'arrêt par stagnation.
+  const panneau = page.getByRole('region', { name: 'Effet de vos réglages' })
+  await expect(panneau).toContainText('0,82')
+  await page.getByLabel('Plancher de sensibilité', { exact: true }).fill('0.88')
+  await expect(panneau).toContainText('0,85')
+  await expect(panneau.locator('.alertes')).toContainText('génération 17 au plus tôt')
+  await page.getByLabel('Arrêt si E-val stable (générations)', { exact: true }).fill('40')
+  await expect(panneau.locator('.alertes')).toHaveCount(0)
+  await expect(page.locator('.champ.modifie')).toHaveCount(2)
+  await page.locator('.champ.modifie').first().getByRole('button', { name: 'rétablir' }).click()
+  await expect(page.getByLabel('Plancher de sensibilité', { exact: true })).toHaveValue('0.85')
+
+  // Contrôles : libellés lisibles plutôt que les clés techniques.
+  await page.getByRole('button', { name: 'Vérifier la configuration' }).click()
+  await expect(page.getByRole('cell', { name: 'Plancher de sensibilité' })).toBeVisible()
+  await expect(page.getByText('Réglages modifiés : evolution.arret_stagnation')).toBeVisible()
 })
 
 test('configuration par défaut lancée sans rien modifier, puis arrêtée', async ({ page }) => {

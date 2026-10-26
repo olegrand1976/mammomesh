@@ -52,6 +52,7 @@ async function act(action: 'pause' | 'reprise' | 'arret' | 'budget') {
       <span v-if="c.state === 'en_cours' || c.state === 'en_pause'" class="live" :class="{ on: store.connected }" :title="store.connected ? 'Flux temps réel connecté' : 'Reconnexion…'">
         {{ store.connected ? 'En direct' : 'Reconnexion…' }}
       </span>
+      <AideZone zone="bandeau" />
       <div class="spacer" />
       <template v-if="session.permissions?.lancer_campagnes">
         <button v-if="c.state === 'en_cours'" class="btn" :disabled="busy" @click="act('pause')">Pause</button>
@@ -60,6 +61,7 @@ async function act(action: 'pause' | 'reprise' | 'arret' | 'budget') {
         <button v-if="c.state === 'en_cours' || c.state === 'en_pause'" class="btn btn-danger" :disabled="busy" @click="act('arret')">Arrêter</button>
       </template>
     </div>
+    <div id="aide-bandeau-ici" />
     <p v-if="error" class="alert">{{ error }}</p>
     <div class="stats">
       <div>

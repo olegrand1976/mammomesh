@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Panneau 2 · Front de Pareto : sensibilité sur la fenêtre de rappel contre coût par examen ; l'ancien front en gris.
-import type { Individual } from '~/types'
+import { fr, type Individual } from '~/types'
 
 const emit = defineEmits<{ select: [id: number] }>()
 const store = useCampagneStore()
@@ -38,13 +38,32 @@ function onClick(e: unknown) {
 
 <template>
   <section class="card">
-    <h2>Front de Pareto</h2>
+    <div class="row titre"><h2>Front de Pareto</h2><AideZone zone="front" /></div>
+    <div id="aide-front-ici" />
     <p class="muted small">Individus réalisables non dominés. Cliquer un point ouvre sa fiche.</p>
     <p v-if="!store.front.length" class="notice small">Aucun individu réalisable pour l'instant : le front apparaît dès qu'un individu dépasse le plancher de sensibilité.</p>
     <EChart class="chart" :option="option" @click="onClick" />
+    <details v-if="store.front.length" class="liste">
+      <summary>Liste des individus du front ({{ store.front.length }})</summary>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Individu</th><th>Sensibilité (E-ajust)</th><th>Coût</th><th /></tr></thead>
+        <tbody>
+          <tr v-for="i in store.front" :key="i.id">
+            <td>{{ i.name }}</td><td>{{ fr(i.sensitivity) }}</td><td>{{ fr(i.cost_ms, 0) }} ms</td>
+            <td><button type="button" class="lien" @click="emit('select', i.id)">Fiche</button></td>
+          </tr>
+        </tbody>
+      </table></div>
+    </details>
   </section>
 </template>
 
 <style scoped>
 .chart { height: 320px; width: 100%; }
+.titre { gap: 8px; margin-bottom: 12px; }
+.liste { margin-top: 8px; font-size: 0.88rem; }
+.liste summary { cursor: pointer; color: var(--muted); }
+.liste td, .liste th { padding: 5px 6px; }
+.lien { border: 0; background: none; color: var(--accent); font: inherit; padding: 0; cursor: pointer; text-decoration: underline; }
+.titre h2 { margin: 0; }
 </style>

@@ -12,6 +12,7 @@ const session = useSessionStore()
           <NuxtLink to="/suivi">Campagnes</NuxtLink>
           <NuxtLink v-if="session.permissions?.proposer_config" to="/suivi/nouvelle">Nouvelle campagne</NuxtLink>
           <NuxtLink to="/suivi/jetons">Jetons MCP</NuxtLink>
+          <NuxtLink to="/suivi/fonctionnement">Fonctionnement</NuxtLink>
         </nav>
         <div class="spacer" />
         <NuxtLink v-if="session.user" to="/suivi/compte" class="small muted account" title="Mon compte">{{ session.user.display_name || session.user.username }}<span class="hide-sm"> · {{ roleLabel[session.user.role] }}</span></NuxtLink>

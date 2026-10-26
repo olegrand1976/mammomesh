@@ -30,7 +30,8 @@ const option = computed(() => {
 
 <template>
   <section class="card">
-    <h2>Progrès par génération</h2>
+    <div class="row titre"><h2>Progrès par génération</h2><AideZone zone="progres" /></div>
+    <div id="aide-progres-ici" />
     <p v-if="!store.generations.length" class="muted small">Première génération en cours…</p>
     <EChart class="chart" :option="option" />
   </section>
@@ -38,4 +39,6 @@ const option = computed(() => {
 
 <style scoped>
 .chart { height: 320px; width: 100%; }
+.titre { gap: 8px; margin-bottom: 12px; }
+.titre h2 { margin: 0; }
 </style>

@@ -49,7 +49,7 @@ async function act(action: 'pause' | 'reprise' | 'arret' | 'budget') {
     <div class="row">
       <h1>{{ c.name }}</h1>
       <span class="badge" :class="c.state">{{ stateLabel[c.state] }}</span>
-      <span class="live" :class="{ on: store.connected }" :title="store.connected ? 'Flux temps réel connecté' : 'Reconnexion…'">
+      <span v-if="c.state === 'en_cours' || c.state === 'en_pause'" class="live" :class="{ on: store.connected }" :title="store.connected ? 'Flux temps réel connecté' : 'Reconnexion…'">
         {{ store.connected ? 'En direct' : 'Reconnexion…' }}
       </span>
       <div class="spacer" />

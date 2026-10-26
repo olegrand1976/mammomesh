@@ -24,7 +24,7 @@ const option = computed(() => ({
     splitLine: { lineStyle: { color: p.value.grid } }, axisLabel: { color: p.value.muted }, nameTextStyle: { color: p.value.muted } },
   series: [
     { name: 'Front précédent', type: 'line', step: 'end', symbolSize: 6, data: pts(store.previousFront),
-      lineStyle: { color: p.value.faint, width: 1 }, itemStyle: { color: p.value.faint } },
+      lineStyle: { color: p.value.muted, width: 1, opacity: 0.45 }, itemStyle: { color: p.value.muted, opacity: 0.45 } },
     { name: `Front, génération ${store.frontGeneration}`, type: 'line', step: 'end', symbolSize: 9, data: pts(store.front),
       lineStyle: { color: p.value.accent, width: 2 }, itemStyle: { color: p.value.accent } },
   ],
@@ -40,6 +40,7 @@ function onClick(e: unknown) {
   <section class="card">
     <h2>Front de Pareto</h2>
     <p class="muted small">Individus réalisables non dominés. Cliquer un point ouvre sa fiche.</p>
+    <p v-if="!store.front.length" class="notice small">Aucun individu réalisable pour l'instant : le front apparaît dès qu'un individu dépasse le plancher de sensibilité.</p>
     <EChart class="chart" :option="option" @click="onClick" />
   </section>
 </template>

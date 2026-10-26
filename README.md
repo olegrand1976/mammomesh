@@ -89,13 +89,17 @@ Absents par construction : test caché, jeux externes, promotion, suppression, i
 
 ## Développement
 
+Prérequis : Go 1.24 ou plus, Node 22 ou plus, PostgreSQL 16 ou plus et Redis en local.
+
 ```bash
-# Base et Redis locaux, puis :
 export DATABASE_URL=postgres://postgres@localhost:5432/mammomesh?sslmode=disable
+export REDIS_URL=redis://localhost:6379/0
 export MCP_TOKEN_PEPPER=dev ADMIN_USERNAME=admin ADMIN_PASSWORD=mot-de-passe-de-dev COOKIE_SECURE=false
-make dev-api            # après : go run ./cmd/mammomesh migrate
+
+cd backend && go run ./cmd/mammomesh migrate   # schéma + compte admin, une fois
+make dev-api            # :8080
 make dev-orchestrator
-make dev-web            # http://localhost:3000, /api relayé vers :8080
+cd web && npm ci && cd .. && make dev-web      # http://localhost:3000, /api relayé vers :8080
 ```
 
 Serveur MCP en stdio pour le développement : `MAMMOMESH_MCP_TOKEN=mmk_... go run ./cmd/mammomesh mcp-stdio`.

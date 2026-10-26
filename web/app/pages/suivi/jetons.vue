@@ -66,7 +66,7 @@ const status = (t: MCPToken) => (t.revoked_at ? 'révoqué' : new Date(t.expires
     </section>
 
     <section class="card list">
-      <table v-if="tokens.length">
+      <div v-if="tokens.length" class="table-wrap"><table>
         <thead><tr><th>Nom</th><th>Portée</th><th>Créé</th><th>Expire</th><th>Dernier usage</th><th>État</th><th /></tr></thead>
         <tbody>
           <tr v-for="t in tokens" :key="t.id">
@@ -75,7 +75,7 @@ const status = (t: MCPToken) => (t.revoked_at ? 'révoqué' : new Date(t.expires
             <td><button v-if="!t.revoked_at" class="btn btn-danger" @click="revoke(t.id)">Révoquer</button></td>
           </tr>
         </tbody>
-      </table>
+      </table></div>
       <p v-else class="muted">Aucun jeton.</p>
     </section>
   </div>

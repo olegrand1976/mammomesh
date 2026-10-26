@@ -135,9 +135,11 @@ func runAPI(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 	hub := realtime.NewHub(st, log, cfg.CoalesceInterval)
 	go hub.Run(ctx)
 
-	srv := api.New(cfg, st, hub, log,
-		auth.NewLimiter(rdb, 10, 15*time.Minute), // 10 tentatives de connexion par 15 minutes
-		auth.NewLimiter(rdb, 120, time.Minute))   // 120 appels MCP par minute et par jeton
+	srv := api.New(cfg, st, hub, log, api.Limits{
+		LoginPerUser: auth.NewLimiter(rdb, 10, 15*time.Minute), // 10 tentatives par identifiant et par 15 minutes
+		LoginPerIP:   auth.NewLimiter(rdb, 50, 15*time.Minute), // 50 par adresse : un poste partagé reste utilisable
+		MCPPerToken:  auth.NewLimiter(rdb, 120, time.Minute),   // 120 appels MCP par minute et par jeton
+	})
 	httpSrv := &http.Server{Addr: cfg.ListenAddr, Handler: srv.Router(), ReadHeaderTimeout: 10 * time.Second}
 	metricsSrv := &http.Server{Addr: cfg.MetricsAddr, Handler: api.MetricsHandler(hub), ReadHeaderTimeout: 5 * time.Second}
 

@@ -35,9 +35,9 @@ onBeforeUnmount(() => clearInterval(timer))
     </div>
     <p v-if="error" class="alert">{{ error }}</p>
     <section class="card">
-      <table v-if="campaigns.length">
+      <div v-if="campaigns.length" class="table-wrap"><table>
         <thead>
-          <tr><th>Campagne</th><th>État</th><th>Génération</th><th>Meilleure sensibilité (E-val)</th><th>Budget</th><th>Lancée le</th></tr>
+          <tr><th>Campagne</th><th>État</th><th>Génération</th><th>Meilleure sensibilité (E-val)</th><th class="hide-sm">Budget</th><th class="hide-sm">Lancée le</th></tr>
         </thead>
         <tbody>
           <tr v-for="c in campaigns" :key="c.id">
@@ -45,11 +45,11 @@ onBeforeUnmount(() => clearInterval(timer))
             <td><span class="badge" :class="c.state">{{ stateLabel[c.state] }}</span></td>
             <td>{{ c.generation }} / {{ c.max_generations }}</td>
             <td>{{ fr(c.best_sensitivity) }}</td>
-            <td>{{ fr(c.budget_used, 1) }} / {{ fr(c.budget_total, 0) }} cœur-h</td>
-            <td class="small">{{ c.started_at ? new Date(c.started_at).toLocaleString('fr-BE') : '—' }}</td>
+            <td class="hide-sm">{{ fr(c.budget_used, 1) }} / {{ fr(c.budget_total, 0) }} cœur-h</td>
+            <td class="small hide-sm">{{ c.started_at ? new Date(c.started_at).toLocaleString('fr-BE') : '—' }}</td>
           </tr>
         </tbody>
-      </table>
+      </table></div>
       <p v-else class="muted">Aucune campagne pour l'instant.<template v-if="session.permissions?.proposer_config"> Créez-en une avec « Nouvelle campagne ».</template></p>
     </section>
   </div>

@@ -25,7 +25,8 @@ export default defineNuxtConfig({
   },
   nitro: {
     devProxy: {
-      '/api': { target: `${apiTarget}/api`, changeOrigin: true },
+      // Host conservé : l'API compare l'en-tête Origin à l'hôte appelé (protection contre les requêtes d'un autre site).
+      '/api': { target: `${apiTarget}/api`, changeOrigin: false },
     },
   },
   typescript: { strict: true },

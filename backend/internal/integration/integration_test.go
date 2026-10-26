@@ -103,7 +103,8 @@ func TestEndToEnd(t *testing.T) {
 	hubCtx, hubStop := context.WithCancel(ctx)
 	defer hubStop() // avant pool.Close : le relais rend sa connexion d'écoute
 	go hub.Run(hubCtx)
-	srv := httptest.NewServer(api.New(cfg, st, hub, log, auth.NewLimiter(nil, 10, time.Minute), auth.NewLimiter(nil, 1000, time.Minute)).Router())
+	srv := httptest.NewServer(api.New(cfg, st, hub, log, api.Limits{LoginPerUser: auth.NewLimiter(nil, 10, time.Minute),
+		LoginPerIP: auth.NewLimiter(nil, 50, time.Minute), MCPPerToken: auth.NewLimiter(nil, 1000, time.Minute)}).Router())
 	defer srv.Close()
 
 	login := func(user, pw string) *http.Client {

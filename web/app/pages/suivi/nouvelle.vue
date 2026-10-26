@@ -50,7 +50,10 @@ async function launch() {
     <h1>Nouvelle campagne</h1>
     <p class="muted">La configuration validée est figée et identifiée par son empreinte. La boucle CNN + CephaloMesh est simulée dans cette version du socle.</p>
     <p v-if="error" class="alert">{{ error }}</p>
-    <form v-if="config" class="grid grid-2" @submit.prevent="verify">
+    <p v-if="session.permissions && !session.permissions.proposer_config" class="notice">
+      Votre rôle permet de suivre les campagnes, pas d'en préparer. Demandez au responsable scientifique ou à l'administrateur.
+    </p>
+    <form v-else-if="config" class="grid grid-2" @submit.prevent="verify">
       <section class="card">
         <h2>Projet</h2>
         <div class="field"><label>Nom</label><input v-model="config.projet.nom" required></div>

@@ -32,13 +32,21 @@ type Server struct {
 	st         *store.Store
 	hub        *realtime.Hub
 	log        *slog.Logger
-	loginLimit *auth.Limiter
+	loginLimit *auth.Limiter // par identifiant
+	ipLimit    *auth.Limiter // par adresse : plus large, plusieurs personnes peuvent partager un poste
 	mcpLimit   *auth.Limiter
 }
 
+// Limits regroupe les limiteurs de débit.
+type Limits struct {
+	LoginPerUser *auth.Limiter
+	LoginPerIP   *auth.Limiter
+	MCPPerToken  *auth.Limiter
+}
+
 // New crée le serveur d'API.
-func New(cfg config.Config, st *store.Store, hub *realtime.Hub, log *slog.Logger, loginLimit, mcpLimit *auth.Limiter) *Server {
-	return &Server{cfg: cfg, st: st, hub: hub, log: log, loginLimit: loginLimit, mcpLimit: mcpLimit}
+func New(cfg config.Config, st *store.Store, hub *realtime.Hub, log *slog.Logger, l Limits) *Server {
+	return &Server{cfg: cfg, st: st, hub: hub, log: log, loginLimit: l.LoginPerUser, ipLimit: l.LoginPerIP, mcpLimit: l.MCPPerToken}
 }
 
 // Router construit les routes.
@@ -190,7 +198,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	in.Username = strings.TrimSpace(in.Username)
 	ctx := r.Context()
 	userKey, ipKey := "login:user:"+strings.ToLower(in.Username), "login:ip:"+clientIP(r)
-	if !s.loginLimit.Allow(ctx, userKey) || !s.loginLimit.Allow(ctx, ipKey) {
+	if !s.loginLimit.Allow(ctx, userKey) || !s.ipLimit.Allow(ctx, ipKey) {
 		writeError(w, http.StatusTooManyRequests, "trop de tentatives ; réessayer dans 15 minutes")
 		return
 	}

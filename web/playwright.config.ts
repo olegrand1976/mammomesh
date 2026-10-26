@@ -31,7 +31,7 @@ export default defineConfig({
   webServer: [
     {
       // Base remise à zéro, schéma et compte admin par défaut, puis orchestrateur et API.
-      command: `psql "${db}" -qc 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;' && ${bin} migrate && (${bin} orchestrator &) && exec ${bin} api`,
+      command: `node e2e/reset-db.mjs && ${bin} migrate && (${bin} orchestrator &) && exec ${bin} api`,
       url: 'http://127.0.0.1:18080/api/health',
       env: {
         ...process.env as Record<string, string>,

@@ -125,6 +125,9 @@ func runAPI(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 
 	var rdb *redis.Client
 	if opt, err := redis.ParseURL(cfg.RedisURL); err == nil {
+		// Réseau local : une réponse arrive en quelques ms ; au-delà, on bascule vite en mémoire.
+		opt.DialTimeout, opt.ReadTimeout, opt.WriteTimeout = 300*time.Millisecond, 300*time.Millisecond, 300*time.Millisecond
+		opt.MaxRetries, opt.DialerRetries = -1, 1 // pas de nouvel essai : le limiteur a son propre repli
 		rdb = redis.NewClient(opt)
 		if err := rdb.Ping(ctx).Err(); err != nil {
 			log.Warn("Redis injoignable : limitation des tentatives en mémoire", "err", err)

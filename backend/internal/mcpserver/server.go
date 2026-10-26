@@ -13,6 +13,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -31,12 +33,53 @@ config_brouillon puis config_verifier avant campagne_lancer, qui demande une con
 Les réponses sont courtes par défaut : demander le détail outil par outil.`
 
 // Handler renvoie le gestionnaire HTTP de /mcp (HTTP en flux, sans état).
-// Le principal (jeton vérifié) est lu dans le contexte de la requête par chaque appel.
+// Le jeton est vérifié à chaque requête en amont ; le serveur construit pour un principal
+// (jeton, utilisateur, rôle, portée) est réutilisé quelques minutes : sa construction coûte
+// plusieurs millisecondes et plus d'un mégaoctet, à ne pas payer à chaque appel.
 func Handler(st *store.Store) http.Handler {
+	c := &serverCache{st: st, ttl: 5 * time.Minute, m: map[principalKey]cachedServer{}}
 	return mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
 		p, _ := PrincipalFrom(r.Context())
-		return NewServer(st, p)
+		return c.get(p)
 	}, &mcp.StreamableHTTPOptions{Stateless: true, JSONResponse: true})
+}
+
+type principalKey struct {
+	token, user int64
+	role, scope string
+}
+
+type cachedServer struct {
+	s     *mcp.Server
+	until time.Time
+}
+
+type serverCache struct {
+	st  *store.Store
+	ttl time.Duration
+	mu  sync.Mutex
+	m   map[principalKey]cachedServer
+}
+
+func (c *serverCache) get(p *store.MCPPrincipal) *mcp.Server {
+	if p == nil {
+		return NewServer(c.st, nil)
+	}
+	k := principalKey{p.TokenID, p.User.ID, p.User.Role, p.Scope}
+	now := time.Now()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if e, ok := c.m[k]; ok && now.Before(e.until) {
+		return e.s
+	}
+	for k2, e := range c.m { // purge des entrées expirées : la table reste petite
+		if now.After(e.until) {
+			delete(c.m, k2)
+		}
+	}
+	s := NewServer(c.st, p)
+	c.m[k] = cachedServer{s: s, until: now.Add(c.ttl)}
+	return s
 }
 
 type ctxKey struct{}

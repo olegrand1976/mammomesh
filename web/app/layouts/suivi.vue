@@ -8,14 +8,14 @@ const session = useSessionStore()
     <header class="app">
       <div class="container row">
         <NuxtLink to="/suivi" class="brand"><img src="/favicon.svg" alt="" width="22" height="22"> MammoMesh</NuxtLink>
-        <nav class="row">
+        <nav v-if="!session.user?.must_change_password" class="row" aria-label="Navigation du suivi">
           <NuxtLink to="/suivi">Campagnes</NuxtLink>
           <NuxtLink v-if="session.permissions?.proposer_config" to="/suivi/nouvelle">Nouvelle campagne</NuxtLink>
           <NuxtLink to="/suivi/jetons">Jetons MCP</NuxtLink>
         </nav>
         <div class="spacer" />
-        <NuxtLink v-if="session.user" to="/suivi/compte" class="small muted account">{{ session.user.display_name || session.user.username }} · {{ roleLabel[session.user.role] }}</NuxtLink>
-        <button class="btn" @click="session.logout()">Déconnexion</button>
+        <NuxtLink v-if="session.user" to="/suivi/compte" class="small muted account" title="Mon compte">{{ session.user.display_name || session.user.username }}<span class="hide-sm"> · {{ roleLabel[session.user.role] }}</span></NuxtLink>
+        <button class="btn logout" @click="session.logout()">Déconnexion</button>
       </div>
     </header>
     <div class="research-band">Recherche uniquement : aucun résultat ne sert à un diagnostic.</div>
@@ -34,4 +34,13 @@ nav a.router-link-exact-active { color: var(--text); background: var(--surface-2
 .account { color: var(--muted); }
 .research-band { background: var(--surface-2); color: var(--muted); font-size: 0.78rem; text-align: center; padding: 3px; }
 .main { padding-top: 20px; padding-bottom: 40px; }
+/* Téléphone : logo et déconnexion sur une ligne, navigation dessous sur une seule ligne défilante. */
+@media (max-width: 640px) {
+  header.app { padding: 6px 0; }
+  header.app .container { row-gap: 4px; }
+  nav { order: 3; width: 100%; flex-wrap: nowrap; overflow-x: auto; gap: 4px; scrollbar-width: none; }
+  nav a { white-space: nowrap; font-size: 0.92rem; }
+  .logout { padding: 5px 10px; font-size: 0.9rem; }
+  .main { padding-top: 14px; }
+}
 </style>

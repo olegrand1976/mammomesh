@@ -7,6 +7,8 @@ test('suivi lisible sur téléphone @mobile', async ({ page }) => {
   await expect(page).toHaveURL(/\/suivi$/)
   const debordement = () => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
   expect(await debordement()).toBeLessThanOrEqual(0)
+  // En-tête compact : deux lignes au plus (logo + déconnexion, navigation).
+  expect((await page.locator('header.app').boundingBox())!.height).toBeLessThan(110)
   await page.getByRole('row', { name: /Essai e2e/ }).getByRole('link').click()
   await expect(page.locator('canvas').first()).toBeVisible()
   expect(await debordement()).toBeLessThanOrEqual(0)

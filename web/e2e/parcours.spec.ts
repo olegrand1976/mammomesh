@@ -21,6 +21,7 @@ test('premier accès : changement imposé du mot de passe par défaut', async ({
   await connexion(page, ADMIN.defaut)
   await expect(page).toHaveURL(/\/suivi\/compte$/)
   await expect(page.getByRole('status')).toContainText('mot de passe par défaut')
+  await expect(page.getByRole('navigation', { name: 'Navigation du suivi' })).toHaveCount(0)
 
   await page.goto('/suivi')
   await expect(page).toHaveURL(/\/suivi\/compte$/) // le suivi reste fermé

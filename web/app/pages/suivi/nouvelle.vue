@@ -1,28 +1,68 @@
 <script setup lang="ts">
 // Assistant simplifié : configuration → brouillon → contrôles avant lancement → lancement.
-import type { Campaign, CampaignConfig, Draft } from '~/types'
+import { fr, type Campaign, type CampaignConfig, type Draft, type Generation } from '~/types'
 import { champDuControle, lire, sections } from '~/utils/guideCampagne'
 
 definePageMeta({ layout: 'suivi', middleware: 'auth' })
 useHead({ title: 'Nouvelle campagne · MammoMesh' })
 
 const { api } = useApi()
+const route = useRoute()
 const session = useSessionStore()
+// Repartir d'une campagne finie (?depart=ID) : ses réglages servent de base, le front de la génération
+// choisie (la finale par défaut) fournit les parents de la génération 1.
+const source = ref<Campaign | null>(null)
+const sourceGens = ref<Generation[]>([])
 const config = ref<CampaignConfig | null>(null)
 const defaut = ref<CampaignConfig | null>(null)
 const aidesToutes = ref(false)
 provide('aides-toutes', aidesToutes)
 const def = (cle: string) => (defaut.value ? lire(defaut.value, cle) : undefined)
-const libelleControle = (nom: string) => champDuControle(nom)?.libelle ?? (nom === 'budget' ? 'Budget et plafond' : nom)
+const libelleControle = (nom: string) => champDuControle(nom)?.libelle ?? ({ budget: 'Budget et plafond', depart: 'Point de départ' } as Record<string, string>)[nom] ?? nom
 const draft = ref<Draft | null>(null)
 const error = ref('')
 const busy = ref(false)
 
-onMounted(async () => {
-  const d = (await api<{ config: CampaignConfig }>('/config/default')).config
-  defaut.value = structuredClone(d)
-  config.value = d
-})
+async function charger() {
+  error.value = ''
+  draft.value = null
+  source.value = null
+  sourceGens.value = []
+  const id = Number(route.query.depart)
+  if (!id) {
+    const d = (await api<{ config: CampaignConfig }>('/config/default')).config
+    defaut.value = structuredClone(d)
+    config.value = d
+    return
+  }
+  try {
+    const [c, g] = await Promise.all([
+      api<{ campaign: Campaign }>(`/campaigns/${id}`),
+      api<{ generations: Generation[] }>(`/campaigns/${id}/generations`),
+    ])
+    if (c.campaign.state !== 'terminee' && c.campaign.state !== 'arretee') {
+      error.value = 'On ne repart que d\'une campagne terminée ou arrêtée.'
+    }
+    source.value = c.campaign
+    sourceGens.value = g.generations
+    const base: CampaignConfig = structuredClone(toRaw(c.campaign.config))
+    delete base.depart
+    defaut.value = structuredClone(base)
+    config.value = { ...structuredClone(base), depart: { campagne_id: id, generation: c.campaign.generation } }
+    config.value.projet.nom = `Suite de ${c.campaign.name}`
+  } catch (e) {
+    error.value = (e as Error).message
+  }
+}
+watch(() => route.query.depart, charger, { immediate: true })
+
+const finale = computed(() => source.value?.generation ?? 0)
+// Générations proposées, de la finale à la première ; sans individu réalisable, pas de front : non sélectionnable.
+const choixGenerations = computed(() => [...sourceGens.value].reverse().map(g => ({
+  numero: g.number,
+  libelle: `Génération ${g.number}${g.number === finale.value ? ' (finale)' : ''} · meilleure ${fr(g.best_sensitivity)} · ${g.feasible} réalisables`,
+  possible: g.feasible > 0,
+})))
 
 watch(config, () => { draft.value = null }, { deep: true })
 
@@ -30,7 +70,7 @@ async function verify() {
   error.value = ''
   busy.value = true
   try {
-    const created = (await api<{ draft: Draft }>('/drafts', { method: 'POST', body: { config: config.value } })).draft
+    const created = (await api<{ draft: Draft }>('/drafts', { method: 'POST', body: { config: config.value, base_campaign_id: source.value?.id } })).draft
     draft.value = (await api<{ draft: Draft }>(`/drafts/${created.id}/verify`, { method: 'POST' })).draft
   } catch (e) {
     error.value = (e as Error).message
@@ -56,7 +96,7 @@ async function launch() {
 <template>
   <div>
     <div class="row head">
-      <h1>Nouvelle campagne</h1>
+      <h1>{{ source ? `Repartir de « ${source.name} »` : 'Nouvelle campagne' }}</h1>
       <div class="spacer" />
       <button v-if="config" type="button" class="btn" :aria-pressed="aidesToutes" @click="aidesToutes = !aidesToutes">
         {{ aidesToutes ? 'Masquer les aides' : 'Afficher toutes les aides' }}
@@ -72,6 +112,19 @@ async function launch() {
       <p class="muted small">La boucle CNN + CephaloMesh est simulée dans cette version : les exemples chiffrés des aides viennent de la simulation. Fonctionnement complet d'une campagne : <NuxtLink to="/suivi/fonctionnement">Fonctionnement</NuxtLink> · guide détaillé : <code>docs/guide-nouvelle-campagne.md</code>.</p>
     </details>
     <p v-if="error" class="alert">{{ error }}</p>
+    <section v-if="source && config?.depart" class="card depart" aria-labelledby="depart-titre">
+      <h2 id="depart-titre">Point de départ</h2>
+      <p class="small">Les individus du front de Pareto de la génération choisie deviennent les parents de la première génération ; leur filiation reste visible dans les fiches. Les réglages ci-dessous partent de ceux de
+        <NuxtLink :to="`/suivi/campagnes/${source.id}`">« {{ source.name }} »</NuxtLink> : un réglage changé est marqué « modifié ».</p>
+      <div class="field">
+        <label for="depart-generation">Génération de départ</label>
+        <select id="depart-generation" v-model.number="config.depart.generation">
+          <option v-for="g in choixGenerations" :key="g.numero" :value="g.numero" :disabled="!g.possible">{{ g.libelle }}</option>
+        </select>
+        <p class="small muted">Par défaut la génération finale. Une génération intermédiaire repart d'un front moins avancé, utile pour explorer une autre direction depuis un palier.</p>
+      </div>
+      <NuxtLink to="/suivi/nouvelle" class="small">Partir de zéro à la place</NuxtLink>
+    </section>
     <p v-if="session.permissions && !session.permissions.proposer_config" class="notice">
       Votre rôle permet de suivre les campagnes, pas d'en préparer. Demandez au responsable scientifique ou à l'administrateur.
     </p>
@@ -146,6 +199,8 @@ async function launch() {
 .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0 14px; align-items: start; }
 h2.sous { margin-top: 10px; }
 .result { margin-top: 16px; }
+.depart { margin-bottom: 16px; border-left: 3px solid var(--accent); }
+.depart select { max-width: 560px; }
 td:first-child { width: 24px; }
 tr.ko td { color: var(--bad); }
 </style>

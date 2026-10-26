@@ -60,7 +60,13 @@ func poisson(r *rand.Rand, mu float64) int {
 // simulate produit la génération g (1, 2, …) d'une campagne.
 func simulate(cfg campaign.Config, campaignID int64, g int, prevFront []string) simGeneration {
 	r := rngFor(cfg.Evolution.Graine, campaignID, g)
-	ceiling := 0.80 + 0.10*(1-math.Exp(-float64(g)/35)) // progrès qui ralentit
+	// Progrès qui ralentit. Une campagne qui repart d'une autre hérite de son avancée :
+	// sa génération 1 prolonge la génération de départ.
+	acquis := 0
+	if cfg.Depart != nil {
+		acquis = cfg.Depart.Generation
+	}
+	ceiling := 0.80 + 0.10*(1-math.Exp(-float64(g+acquis)/35))
 	floor := cfg.Projet.PlancherSensibilite - cfg.Projet.MargePoints/100
 
 	out := simGeneration{}

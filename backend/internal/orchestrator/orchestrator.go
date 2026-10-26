@@ -168,7 +168,7 @@ func (o *Orchestrator) runCampaign(ctx context.Context, id int64) error {
 			}
 			o.progress(ctx, id, g, lot, lots, c.BudgetUsed+perLot*float64(lot), c.BudgetTotal)
 		}
-		prev, err := o.frontNames(ctx, id, c.Generation)
+		prev, err := o.parents(ctx, c)
 		if err != nil {
 			return err
 		}
@@ -195,6 +195,17 @@ func (o *Orchestrator) state(ctx context.Context, id int64) (string, error) {
 	var s string
 	err := o.st.Pool.QueryRow(ctx, `SELECT state FROM campaigns WHERE id=$1`, id).Scan(&s)
 	return s, err
+}
+
+// parents : noms du front précédent ; à la génération 1, le front de départ s'il y en a un.
+func (o *Orchestrator) parents(ctx context.Context, c store.Campaign) ([]string, error) {
+	if c.Generation == 0 {
+		if d := c.Config.Depart; d != nil {
+			return o.frontNames(ctx, d.CampagneID, d.Generation)
+		}
+		return nil, nil
+	}
+	return o.frontNames(ctx, c.ID, c.Generation)
 }
 
 func (o *Orchestrator) frontNames(ctx context.Context, id int64, g int) ([]string, error) {

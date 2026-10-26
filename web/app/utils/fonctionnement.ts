@@ -53,6 +53,7 @@ export const parties: Partie[] = [
           'Lancement : par le responsable scientifique ou l\'administrateur, une seule fois par brouillon. La campagne passe « En cours ».',
           'En cours ⇄ En pause : la pause prend effet à la fin du lot en cours ; à la reprise, la génération interrompue est refaite à l\'identique.',
           'Fin : « Terminée » quand un critère d\'arrêt est atteint, « Arrêtée » sur demande d\'une personne, « En échec » si l\'orchestrateur rencontre une erreur (détaillée au journal).',
+          'Suite : depuis une campagne terminée ou arrêtée, « Repartir de cette campagne » prépare une nouvelle campagne qui reprend ses réglages, modifiables, et dont la génération 1 descend du front de la génération choisie (la finale par défaut). Ce départ fait partie de la configuration figée et de son empreinte.',
         ],
       },
     ],
@@ -65,7 +66,7 @@ export const parties: Partie[] = [
         etapes: [
           'Avant de commencer, l\'orchestrateur vérifie les critères d\'arrêt : plafond de générations, budget atteint, stagnation de E-val.',
           'Le calcul avance par lots. À chaque lot, il publie la progression (lot a sur b, budget consommé) et vérifie que la campagne est toujours en cours.',
-          'Population : chaque individu est l\'enfant d\'un individu du front précédent, tiré au hasard, avec m = 1 + Poisson(μ) mutations, plafonné par « Mutations au plus ». À la première génération, les individus sont des fondateurs.',
+          'Population : chaque individu est l\'enfant d\'un individu du front précédent, tiré au hasard, avec m = 1 + Poisson(μ) mutations, plafonné par « Mutations au plus ». À la première génération, les individus sont des fondateurs, ou les enfants du front de départ quand la campagne repart d\'une autre.',
           'Mesures de chaque individu : sensibilité sur E-ajust avec son intervalle (bornes basse et haute), sensibilité sur E-val, coût par examen en millisecondes.',
           'Réalisabilité : un individu est retenu si la borne basse de sa sensibilité atteint « plancher − marge ». Les autres sont écartés, et le journal le dit.',
           'Front de Pareto : parmi les réalisables, ceux qu\'aucun autre ne bat à la fois en sensibilité et en coût. Ils deviennent les parents de la génération suivante.',

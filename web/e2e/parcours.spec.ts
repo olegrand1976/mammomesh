@@ -83,7 +83,7 @@ test('campagne lancée depuis l\'interface et suivie en direct', async ({ page }
   await page.getByRole('button', { name: 'Masquer les aides' }).click()
   await expect(page.locator('.aide-zone')).toHaveCount(0)
   await page.getByText(/^Liste des individus du front/).click()
-  await page.getByRole('button', { name: 'Fiche' }).last().click()
+  await page.getByRole('button', { name: 'Fiche', exact: true }).last().click()
   await expect(page.getByRole('heading', { name: /^Fiche / })).toBeInViewport()
   await expect(page.getByRole('rowheader', { name: 'Sensibilité (E-val)' })).toBeVisible()
 
@@ -133,6 +133,33 @@ test('configuration par défaut lancée sans rien modifier, puis arrêtée', asy
   page.once('dialog', d => d.accept())
   await page.getByRole('button', { name: 'Arrêter' }).click()
   await expect(page.locator('.badge.arretee')).toBeVisible()
+})
+
+test('repartir d\'une campagne terminée, depuis le front de sa génération finale', async ({ page }) => {
+  await connexion(page, ADMIN.nouveau)
+  await page.getByRole('link', { name: 'Essai e2e', exact: true }).click()
+  await page.getByRole('link', { name: 'Repartir de cette campagne' }).click()
+  await expect(page.getByRole('heading', { name: 'Repartir de « Essai e2e »' })).toBeVisible()
+  const generation = page.getByLabel('Génération de départ')
+  await expect(generation).toHaveValue('12') // la finale par défaut
+  await expect(generation.locator('option').first()).toContainText('(finale)')
+  await expect(page.getByLabel('Population', { exact: true })).toHaveValue('30') // réglages d'origine
+  await page.getByLabel('Population', { exact: true }).fill('25')
+  await page.getByLabel('Lignée (majuscules)', { exact: true }).fill('LYRA')
+  await expect(page.locator('.champ.modifie')).toHaveCount(3) // nom (« Suite de … »), population, lignée
+  await page.getByRole('button', { name: 'Vérifier la configuration' }).click()
+  await expect(page.getByRole('row', { name: /Point de départ/ })).toContainText('✓')
+  await page.getByRole('button', { name: 'Lancer la campagne' }).click()
+  await expect(page.getByText(/départ : campagne \d+, génération 12/)).toBeVisible()
+  await expect(page.getByText(/^[1-9]\d* \/ 12$/)).toBeVisible({ timeout: 20_000 })
+  // Génération 1 : chaque parent vient du front de la génération 12 de la campagne d'origine.
+  const id = page.url().split('/').at(-1)
+  const g1 = await (await page.request.get(`/api/campaigns/${id}/front?generation=1`)).json()
+  expect(g1.front.length).toBeGreaterThan(0)
+  for (const ind of g1.front) {
+    expect(ind.name).toMatch(/^LYRA-G01\./)
+    expect(ind.parent_name).toMatch(/^ORION-G12\./)
+  }
 })
 
 test('jeton MCP créé, affiché une fois, puis révoqué', async ({ page }) => {

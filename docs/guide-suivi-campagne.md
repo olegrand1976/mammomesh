@@ -38,12 +38,14 @@ L'état de la campagne en un coup d'œil, et les commandes pour la piloter.
 | En direct / Reconnexion… | Pastille verte : le flux temps réel est ouvert, l'écran se met à jour seul. Orange : connexion perdue ; le navigateur se reconnecte et reprend là où il s'était arrêté, sans rien perdre ni recharger. |
 | Pause, Reprendre | Pause suspend la campagne après le lot en cours ; la génération interrompue sera refaite à l'identique à la reprise (même graine, même tirage). |
 | Budget + | Augmente le budget de calcul, en cœur-heures, par exemple quand la campagne approche de son plafond alors qu'elle progresse encore. Le budget ne se baisse jamais. |
+| Repartir de cette campagne | Sur une campagne terminée ou arrêtée : ouvre « Nouvelle campagne » avec ses réglages, à modifier, et le front de sa génération finale comme parents. Une génération intermédiaire peut être choisie à la place. |
 | Arrêter | Arrêt définitif, après confirmation. Les résultats déjà calculés restent consultables ; la campagne ne peut plus reprendre. |
 | Génération | Générations terminées sur le plafond, avec une barre. Pendant le calcul, la ligne « génération N : lot a sur b » suit la génération en cours, lot par lot. |
 | Budget | Cœur-heures consommées sur le budget, mis à jour à chaque lot. Quand la barre est pleine, la campagne s'arrête à la fin de la génération en cours. |
 | Meilleure sensibilité (E-val) | Meilleure sensibilité mesurée sur E-val parmi les individus réalisables depuis le début ; « — » tant qu'aucun ne l'est. Dessous, le nombre de générations sans progrès d'au moins 0,1 point : la campagne s'arrête quand il atteint le réglage « Arrêt si E-val stable ». |
 | Fin estimée | Durée moyenne des 10 dernières générations × générations restantes, « au plus » car la stagnation ou le budget peuvent arrêter avant. « — » hors calcul. |
 | Lignée et configuration | Préfixe des noms d'individus et 8 premiers caractères de l'empreinte de la configuration figée : deux campagnes à la même empreinte ont exactement les mêmes réglages. |
+| Départ | Pour une campagne qui repart d'une autre : lien vers la campagne d'origine et génération dont le front a fourni les parents. |
 
 **À savoir.** Les commandes n'apparaissent qu'au responsable scientifique et à l'administrateur ; chaque geste est inscrit au journal d'audit. L'interface peut être fermée : l'orchestrateur continue seul.
 
@@ -110,8 +112,8 @@ Ce qui s'est passé, en phrases, le plus récent en tête.
 |---|---|---|
 | En cours | L'orchestrateur calcule | Pause, Budget +, Arrêter |
 | En pause | Suspendue ; la génération interrompue sera refaite à l'identique | Reprendre, Budget +, Arrêter |
-| Terminée | Plafond de générations, budget ou stagnation de E-val atteint (le journal dit lequel) | aucune |
-| Arrêtée | Arrêt demandé par une personne | aucune |
+| Terminée | Plafond de générations, budget ou stagnation de E-val atteint (le journal dit lequel) | Repartir de cette campagne |
+| Arrêtée | Arrêt demandé par une personne | Repartir de cette campagne |
 | En échec | Erreur de l'orchestrateur, détaillée dans le journal | aucune |
 
 ## Situations courantes

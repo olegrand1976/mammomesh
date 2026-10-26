@@ -105,8 +105,10 @@ type JournalOut struct {
 }
 
 type DraftIn struct {
-	BaseCampagneID int64          `json:"base_campagne_id,omitempty" jsonschema:"campagne de départ ; valeurs par défaut sinon"`
-	Reglages       map[string]any `json:"reglages" jsonschema:"réglages modifiés en notation pointée, par exemple {\"evolution.population\": 150}"`
+	BaseCampagneID   int64          `json:"base_campagne_id,omitempty" jsonschema:"campagne de départ ; valeurs par défaut sinon"`
+	Reglages         map[string]any `json:"reglages" jsonschema:"réglages modifiés en notation pointée, par exemple {\"evolution.population\": 150}"`
+	DepartCampagneID int64          `json:"depart_campagne_id,omitempty" jsonschema:"repartir du front d'une campagne terminée ou arrêtée"`
+	DepartGeneration int            `json:"depart_generation,omitempty" jsonschema:"génération de départ ; 0 ou absent : la dernière"`
 }
 
 type DraftRef struct {

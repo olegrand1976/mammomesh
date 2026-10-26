@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -362,12 +363,41 @@ func (s *Store) VerifyDraft(ctx context.Context, id int64) (Draft, error) {
 		return d, err
 	}
 	v := campaign.Verify(d.Config)
+	if d.Config.Depart != nil {
+		ch := s.checkDepart(ctx, *d.Config.Depart)
+		v.Checks = append(v.Checks, ch)
+		v.OK = v.OK && ch.OK
+	}
 	b, _ := json.Marshal(v)
 	if _, err := s.Pool.Exec(ctx, `UPDATE config_drafts SET checks=$2, verified_ok=$3, verified_at=now() WHERE id=$1`, id, b, v.OK); err != nil {
 		return d, err
 	}
 	d.Verification, d.VerifiedOK = &v, v.OK
 	return d, nil
+}
+
+// checkDepart : la campagne de départ est finie (terminée ou arrêtée) et la génération choisie a un front.
+func (s *Store) checkDepart(ctx context.Context, d campaign.Depart) campaign.Check {
+	ch := campaign.Check{Name: "depart"}
+	c, err := s.GetCampaign(ctx, d.CampagneID)
+	switch {
+	case err != nil:
+		ch.Detail = fmt.Sprintf("campagne de départ %d introuvable", d.CampagneID)
+	case c.State != "terminee" && c.State != "arretee":
+		ch.Detail = fmt.Sprintf("la campagne %d doit être terminée ou arrêtée (état : %s)", d.CampagneID, c.State)
+	case d.Generation < 1 || d.Generation > c.Generation:
+		ch.Detail = fmt.Sprintf("génération %d hors de la campagne %d (1 à %d)", d.Generation, d.CampagneID, c.Generation)
+	default:
+		var n int
+		if err := s.Pool.QueryRow(ctx, `SELECT count(*) FROM individuals WHERE campaign_id=$1 AND generation=$2 AND on_front`,
+			d.CampagneID, d.Generation).Scan(&n); err != nil || n == 0 {
+			ch.Detail = fmt.Sprintf("la génération %d de la campagne %d n'a aucun individu réalisable", d.Generation, d.CampagneID)
+			break
+		}
+		ch.OK = true
+		ch.Detail = fmt.Sprintf("« %s », génération %d : %d individus du front comme parents", c.Name, d.Generation, n)
+	}
+	return ch
 }
 
 // ErrNotVerified : un brouillon ne se lance qu'après des contrôles réussis.
@@ -411,9 +441,13 @@ func (s *Store) LaunchDraft(ctx context.Context, id, userID int64) (Campaign, er
 		if _, err := tx.Exec(ctx, `UPDATE config_drafts SET launched_campaign_id=$2 WHERE id=$1`, id, cid); err != nil {
 			return err
 		}
-		if err := InsertEvent(ctx, tx, &cid, "campagne_lancee",
-			"Campagne « "+cfg.Projet.Nom+" » lancée : lignée "+cfg.Projet.Lignee+", configuration "+campaign.Hash(cfg)[:8]+".",
-			map[string]any{"config_hash": campaign.Hash(cfg)}); err != nil {
+		msg := "Campagne « " + cfg.Projet.Nom + " » lancée : lignée " + cfg.Projet.Lignee + ", configuration " + campaign.Hash(cfg)[:8]
+		payload := map[string]any{"config_hash": campaign.Hash(cfg)}
+		if d := cfg.Depart; d != nil {
+			msg += fmt.Sprintf(", au départ du front de la génération %d de la campagne %d", d.Generation, d.CampagneID)
+			payload["depart"] = d
+		}
+		if err := InsertEvent(ctx, tx, &cid, "campagne_lancee", msg+".", payload); err != nil {
 			return err
 		}
 		out, err = scanCampaign(tx.QueryRow(ctx, `SELECT `+campaignCols+` FROM campaigns WHERE id=$1`, cid))

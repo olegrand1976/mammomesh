@@ -9,7 +9,7 @@ test('suivi lisible sur téléphone @mobile', async ({ page }) => {
   expect(await debordement()).toBeLessThanOrEqual(0)
   // En-tête compact : deux lignes au plus (logo + déconnexion, navigation).
   expect((await page.locator('header.app').boundingBox())!.height).toBeLessThan(110)
-  await page.getByRole('row', { name: /Essai e2e/ }).getByRole('link').click()
+  await page.getByRole('link', { name: 'Essai e2e', exact: true }).click()
   await expect(page.locator('canvas').first()).toBeVisible()
   expect(await debordement()).toBeLessThanOrEqual(0)
 })

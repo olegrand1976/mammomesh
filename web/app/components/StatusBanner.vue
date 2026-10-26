@@ -60,6 +60,8 @@ async function act(action: 'pause' | 'reprise' | 'arret' | 'budget') {
         <button v-if="c.state === 'en_cours' || c.state === 'en_pause'" class="btn" :disabled="busy" @click="act('budget')">Budget +</button>
         <button v-if="c.state === 'en_cours' || c.state === 'en_pause'" class="btn btn-danger" :disabled="busy" @click="act('arret')">Arrêter</button>
       </template>
+      <NuxtLink v-if="(c.state === 'terminee' || c.state === 'arretee') && session.permissions?.proposer_config"
+        :to="`/suivi/nouvelle?depart=${c.id}`" class="btn btn-primary">Repartir de cette campagne</NuxtLink>
     </div>
     <div id="aide-bandeau-ici" />
     <p v-if="error" class="alert">{{ error }}</p>
@@ -86,6 +88,9 @@ async function act(action: 'pause' | 'reprise' | 'arret' | 'budget') {
         <span class="label">Fin estimée</span>
         <strong>{{ eta }}</strong>
         <span class="small muted">lignée {{ c.lineage }} · configuration <code>{{ c.config_hash.slice(0, 8) }}</code></span>
+        <span v-if="c.config.depart" class="small muted">départ :
+          <NuxtLink :to="`/suivi/campagnes/${c.config.depart.campagne_id}`">campagne {{ c.config.depart.campagne_id }}</NuxtLink>,
+          génération {{ c.config.depart.generation }}</span>
       </div>
     </div>
   </section>

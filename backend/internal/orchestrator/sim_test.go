@@ -53,3 +53,17 @@ func TestMutationsRespectCap(t *testing.T) {
 		}
 	}
 }
+
+// Repartir de la génération 40 : la génération 1 simulée prolonge l'avancée acquise.
+func TestSimulateDepartHeriteAvancee(t *testing.T) {
+	c := campaign.Default()
+	zero := simulate(c, 1, 1, nil)
+	c.Depart = &campaign.Depart{CampagneID: 9, Generation: 40}
+	suite := simulate(c, 1, 1, []string{"ORION-G40.01"})
+	if suite.MedianSens <= zero.MedianSens+0.03 {
+		t.Fatalf("médiane %v après départ, %v de zéro", suite.MedianSens, zero.MedianSens)
+	}
+	if suite.Individuals[0].Parent != "ORION-G40.01" {
+		t.Fatalf("parent %q", suite.Individuals[0].Parent)
+	}
+}

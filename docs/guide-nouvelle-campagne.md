@@ -34,6 +34,18 @@ Sous chaque champ : la plage autorisée (ou la saisie attendue), la valeur par d
 2. **Vérifier.** « Vérifier la configuration » crée un brouillon figé, contrôle chaque réglage et estime la durée et le calcul. **Rien n'est lancé.** Toute modification ultérieure efface la vérification : il faut vérifier à nouveau.
 3. **Lancer.** « Lancer la campagne » n'apparaît que si tous les contrôles passent. Un brouillon ne se lance qu'une fois. L'orchestrateur prend la campagne en moins d'une seconde et l'écran de suivi s'ouvre, en direct.
 
+## Repartir d'une campagne finie
+
+Depuis une campagne terminée ou arrêtée, le bouton « Repartir de cette campagne » ouvre cet écran avec :
+
+- le titre « Repartir de « … » » et une zone **Point de départ** ;
+- les réglages de la campagne d'origine comme valeurs de référence : un réglage changé est marqué « modifié », « rétablir » revient à la valeur d'origine ;
+- la **génération de départ**, la finale par défaut. La liste donne pour chaque génération sa meilleure sensibilité et son nombre de réalisables ; une génération sans réalisable n'a pas de front et ne peut pas servir.
+
+Les individus du front de Pareto de cette génération deviennent les parents de la génération 1. Le départ fait partie de la configuration figée : il entre dans l'empreinte, s'affiche dans le bandeau de suivi et dans le journal de lancement. Les contrôles ajoutent une ligne « Point de départ » : campagne finie, génération existante, front non vide. « Partir de zéro à la place » revient aux valeurs par défaut.
+
+Depuis Claude Code : l'outil `config_brouillon` accepte `depart_campagne_id` et, si besoin, `depart_generation` (la dernière par défaut).
+
 ## Les réglages
 
 ### Projet

@@ -21,7 +21,11 @@ export interface CampaignConfig {
     mutations_mu: number; mutations_max: number; iles: number; graine: number
   }
   simulation: { duree_lot_ms: number; lots_par_generation: number }
+  depart?: Depart | null
 }
+
+/** Départ d'une campagne : front de la génération d'une campagne finie, parents de la génération 1. */
+export interface Depart { campagne_id: number; generation: number }
 
 export interface Campaign {
   id: number

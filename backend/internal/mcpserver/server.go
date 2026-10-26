@@ -242,7 +242,7 @@ func NewServer(st *store.Store, p *store.MCPPrincipal) *mcp.Server {
 		})
 
 	tool(s, st, p, &mcp.Tool{Name: "config_brouillon", Title: "Créer un brouillon de configuration", Annotations: propose,
-		Description: "Crée un brouillon à partir d'une campagne (ou des valeurs par défaut) et de réglages en notation pointée, par exemple {\"evolution.population\": 150}. Ne lance rien."},
+		Description: "Crée un brouillon à partir d'une campagne (ou des valeurs par défaut) et de réglages en notation pointée, par exemple {\"evolution.population\": 150}. depart_campagne_id fait repartir du front d'une campagne finie (dernière génération par défaut, ou depart_generation). Ne lance rien."},
 		func(ctx context.Context, in DraftIn) (store.Draft, error) {
 			if err := needPropose(); err != nil {
 				return store.Draft{}, err
@@ -255,10 +255,25 @@ func NewServer(st *store.Store, p *store.MCPPrincipal) *mcp.Server {
 					return store.Draft{}, notFound("campagne", in.BaseCampagneID, err)
 				}
 				base, baseID = c.Config, &c.ID
+				base.Depart = nil // le départ ne s'hérite pas : il se demande explicitement
 			}
 			cfg, err := campaign.Apply(base, in.Reglages)
 			if err != nil {
 				return store.Draft{}, err
+			}
+			if in.DepartCampagneID > 0 {
+				src, err := st.GetCampaign(ctx, in.DepartCampagneID)
+				if err != nil {
+					return store.Draft{}, notFound("campagne", in.DepartCampagneID, err)
+				}
+				g := in.DepartGeneration
+				if g <= 0 {
+					g = src.Generation // par défaut : la génération finale
+				}
+				cfg.Depart = &campaign.Depart{CampagneID: src.ID, Generation: g}
+				if baseID == nil {
+					baseID = &src.ID
+				}
 			}
 			return st.CreateDraft(ctx, p.User.ID, "mcp", baseID, cfg)
 		})

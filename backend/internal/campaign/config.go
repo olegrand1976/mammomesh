@@ -18,6 +18,15 @@ type Config struct {
 	Projet     Projet     `json:"projet"`
 	Evolution  Evolution  `json:"evolution"`
 	Simulation Simulation `json:"simulation"`
+	// Depart : la campagne repart du front d'une génération d'une campagne finie (absent : départ de zéro).
+	// omitempty : l'empreinte des configurations sans départ ne change pas.
+	Depart *Depart `json:"depart,omitempty"`
+}
+
+// Depart désigne la génération dont le front de Pareto fournit les parents de la génération 1.
+type Depart struct {
+	CampagneID int64 `json:"campagne_id" jsonschema:"campagne terminée ou arrêtée d'où repartir"`
+	Generation int   `json:"generation" jsonschema:"génération dont le front sert de parents (par défaut la dernière)"`
 }
 
 // Projet : objectif et garde-fous écrits avant la campagne.

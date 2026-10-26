@@ -1,6 +1,9 @@
 package campaign
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+)
 
 func TestDefaultPassesChecks(t *testing.T) {
 	v := Verify(Default())
@@ -57,5 +60,15 @@ func TestApplyRejectsUnknown(t *testing.T) {
 	}
 	if _, err := Apply(Default(), map[string]any{"evolution.population": "beaucoup"}); err == nil {
 		t.Fatal("valeur de mauvais type acceptée")
+	}
+}
+
+// Configuration inchangée : la différence est une liste vide, jamais null en JSON
+// (l'interface lit diff.length ; le schéma MCP attend un tableau).
+func TestDiffEmptyIsArray(t *testing.T) {
+	d := Diff(Default(), Default())
+	b, _ := json.Marshal(d)
+	if string(b) != "[]" {
+		t.Fatalf("diff vide : %s", b)
 	}
 }

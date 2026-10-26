@@ -79,6 +79,20 @@ test('campagne lancée depuis l\'interface et suivie en direct', async ({ page }
   expect(erreurs).toEqual([])
 })
 
+test('configuration par défaut lancée sans rien modifier, puis arrêtée', async ({ page }) => {
+  await connexion(page, ADMIN.nouveau)
+  await page.goto('/suivi/nouvelle')
+  await expect(page.getByLabel('Nom', { exact: true })).toHaveValue(/.+/)
+  await page.getByRole('button', { name: 'Vérifier la configuration' }).click()
+  await expect(page.getByText('Réglages modifiés')).toHaveCount(0) // rien de modifié : pas de liste
+  await page.getByRole('button', { name: 'Lancer la campagne' }).click()
+  await expect(page).toHaveURL(/\/suivi\/campagnes\/\d+$/)
+  await expect(page.getByText(/^[1-9]\d* \/ 200$/)).toBeVisible({ timeout: 15_000 }) // une génération dure ~3 s
+  page.once('dialog', d => d.accept())
+  await page.getByRole('button', { name: 'Arrêter' }).click()
+  await expect(page.locator('.badge.arretee')).toBeVisible()
+})
+
 test('jeton MCP créé, affiché une fois, puis révoqué', async ({ page }) => {
   await connexion(page, ADMIN.nouveau)
   await page.goto('/suivi/jetons')

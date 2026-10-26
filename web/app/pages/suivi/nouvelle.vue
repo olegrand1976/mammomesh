@@ -97,7 +97,7 @@ async function launch() {
         </tbody>
       </table>
       <p class="small">Durée estimée : {{ draft.verification.duree_estimee_min }} min au plus · {{ draft.verification.coeur_heures_estimees }} cœur-heures au plus.</p>
-      <p v-if="draft.diff.length" class="small muted">Réglages modifiés : {{ draft.diff.map(d => d.champ).join(', ') }}</p>
+      <p v-if="draft.diff?.length" class="small muted">Réglages modifiés : {{ draft.diff.map(d => d.champ).join(', ') }}</p>
       <button v-if="session.permissions?.lancer_campagnes" class="btn btn-primary" :disabled="busy || !draft.verified_ok" @click="launch">Lancer la campagne</button>
       <p v-else class="notice small">Le lancement est réservé au responsable scientifique et à l'administrateur.</p>
     </section>

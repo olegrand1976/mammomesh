@@ -159,7 +159,7 @@ func Diff(a, b Config) []Change {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	var out []Change
+	out := []Change{} // jamais nil : « [] » en JSON, attendu par l'interface et le schéma MCP
 	for _, k := range keys {
 		if !reflect.DeepEqual(fa[k], fb[k]) {
 			out = append(out, Change{Field: k, From: fa[k], To: fb[k]})

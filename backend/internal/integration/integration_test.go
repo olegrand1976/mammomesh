@@ -85,6 +85,14 @@ func TestEndToEnd(t *testing.T) {
 	conf["evolution"].(map[string]any)["generations_max"] = 12
 	conf["simulation"].(map[string]any)["duree_lot_ms"] = 40
 	conf["simulation"].(map[string]any)["lots_par_generation"] = 3
+	// Configuration par défaut, inchangée : diff vide mais tableau (sinon l'interface ne propose pas le lancement).
+	defDraft := call(admin, "POST", "/api/drafts", map[string]any{"config": call(admin, "GET", "/api/config/default", nil, 200)["config"]}, 201)["draft"].(map[string]any)
+	if d, ok := defDraft["diff"].([]any); !ok || len(d) != 0 {
+		t.Fatalf("diff d'une configuration par défaut : %#v", defDraft["diff"])
+	}
+	if v := call(admin, "POST", fmt.Sprintf("/api/drafts/%d/verify", int64(defDraft["id"].(float64))), nil, 200)["draft"].(map[string]any); v["verified_ok"] != true {
+		t.Fatalf("configuration par défaut refusée : %v", v)
+	}
 	draft := call(admin, "POST", "/api/drafts", map[string]any{"config": conf}, 201)["draft"].(map[string]any)
 	draftID := int64(draft["id"].(float64))
 	call(admin, "POST", fmt.Sprintf("/api/drafts/%d/launch", draftID), nil, 409) // pas encore vérifié
@@ -272,6 +280,9 @@ collect:
 		t.Fatalf("config_brouillon : %v", d.Content)
 	}
 	newDraft := int64(d.StructuredContent.(map[string]any)["id"].(float64))
+	if res := tool(ps, "config_brouillon", map[string]any{"reglages": map[string]any{}}); res.IsError {
+		t.Fatalf("config_brouillon sans réglage : %v", res.Content)
+	}
 	if diff := d.StructuredContent.(map[string]any)["diff"].([]any); len(diff) != 2 {
 		t.Fatalf("diff du brouillon : %v", diff)
 	}

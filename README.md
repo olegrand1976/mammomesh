@@ -15,9 +15,12 @@ La conception complète (protocole, garde-fous, pile, déploiement) est dans la 
 | Orchestrateur autonome : verrou unique, reprise après redémarrage, arrêt sur plafond, budget ou stagnation de E-val | fait |
 | Serveur MCP pour Claude Code (`/mcp`) : 10 outils, ressource « rapport », 2 invites, jetons personnels | fait |
 | Interface Nuxt : page de présentation scientifique, login, campagnes, écran de suivi en direct, jetons MCP | fait |
+| Campagnes chaînées : repartir du front de la génération finale (ou d'une intermédiaire) d'une campagne finie | fait |
+| Images : import DICOM pseudonymisé, visionneuse (fenêtrage, zoom), test d'un individu au choix (génération finale par défaut) | fait, résultat **simulé** |
+| Documentation intégrée : fonctionnement, modèle mathématique (KaTeX), guides d'écran, lexique des mutations | fait, aussi dans `docs/` |
 | Docker compose : Caddy, web, api, orchestrator, migrate, PostgreSQL 18, Redis 8, SeaweedFS, sauvegarde, observabilité | fait |
 | Boucle CNN + CephaloMesh | **simulée** (déterministe) : le vrai couple arrive aux jalons 1 à 3 |
-| Banque d'entraînement, chaîne d'import DICOM, moteur d'analyse, Triton, entraînement | jalons 0 et 1 |
+| Banque d'entraînement, chaîne d'import DICOM complète (JPEG 2000, pseudonymisation de la banque), moteur d'analyse, Triton, entraînement | jalons 0 et 1 |
 
 ## Architecture
 
@@ -76,8 +79,9 @@ Puis l'importer dans le magasin de certificats des postes ; pour Claude Code : `
 2. Dans ce dépôt, `.mcp.json` est déjà prêt ; il suffit d'exporter :
 
 ```bash
-export MAMMOMESH_URL=https://mammomesh.lan
+export MAMMOMESH_URL=https://mammomesh.lan     # sur un seul poste : https://localhost
 export MAMMOMESH_MCP_TOKEN=mmk_...
+export NODE_EXTRA_CA_CERTS=$PWD/mammomesh-root.crt   # certificat de Caddy, voir « Certificat » (make ca)
 claude
 ```
 
@@ -88,7 +92,7 @@ Hors du dépôt : `claude mcp add --transport http mammomesh https://mammomesh.l
 | Outil | Type |
 |---|---|
 | `campagnes_lister`, `campagne_etat`, `front_pareto`, `individu_fiche`, `individus_comparer`, `journal_lire` | lecture |
-| `config_brouillon`, `config_verifier` | proposition (ne lance rien) |
+| `config_brouillon` (avec `depart_campagne_id` pour repartir d'une campagne finie), `config_verifier` | proposition (ne lance rien) |
 | `campagne_lancer`, `campagne_reglage` | action, confirmée, rôle responsable scientifique ou administrateur |
 
 Absents par construction : test caché, jeux externes, promotion, suppression, images, SQL.
@@ -101,6 +105,7 @@ Prérequis : Go 1.27, Node 24 LTS, PostgreSQL 18 ; Redis 8 facultatif.
 export DATABASE_URL=postgres://postgres@localhost:5432/mammomesh?sslmode=disable
 export REDIS_URL=redis://localhost:6379/0   # ou REDIS_URL= (vide) : compteurs en mémoire, sans Redis
 export MCP_TOKEN_PEPPER=dev COOKIE_SECURE=false
+export IMAGES_DIR=data/images               # pixels des images de test (en Docker : IMAGES_URL, filer SeaweedFS)
 
 cd backend && go run ./cmd/mammomesh migrate   # schéma + compte admin, une fois
 make dev-api            # :8080, compte admin / admin$1 créé par migrate
@@ -114,17 +119,21 @@ Serveur MCP en stdio pour le développement : `MAMMOMESH_MCP_TOKEN=mmk_... go ru
 
 | Niveau | Commande | Contenu |
 |---|---|---|
-| Unitaires Go | `make test-backend` | mots de passe, limiteur (Redis absent, gelé, rétabli), configuration et secrets, contrôles de configuration, simulation déterministe, SSE, cache MCP |
-| Intégration Go | `DATABASE_URL_TEST=… REDIS_URL_TEST=… make test-backend` | base remise à zéro : compte par défaut et changement imposé, origines, limitation (Redis réel), brouillon → lancement → orchestrateur, SSE et reprise `Last-Event-ID`, réglages, lectures REST, 10 outils MCP par portée, audit, révocation |
-| Unitaires web | `make test-web` | Vitest en environnement Nuxt : stores campagne (flux, dédoublonnage, `resync`) et session, formatage |
-| Bout en bout | `E2E_DATABASE_URL=… make e2e` | Playwright, pile complète (API, orchestrateur, Nuxt, proxy à la place de Caddy, port 14000) : présentation, refus, premier accès, campagne suivie en direct jusqu'à la fin, filtres du journal, jetons MCP, déconnexion, affichage téléphone |
+| Unitaires Go | `make test-backend` | mots de passe, limiteur (Redis absent, gelé, rétabli), configuration et secrets, contrôles de configuration, simulation déterministe et départ, SSE, cache MCP, import DICOM (pseudonymisation, refus), test simulé, stockages (`MAMMOMESH_FILER_TEST` : vrai filer SeaweedFS) |
+| Intégration Go | `DATABASE_URL_TEST=… REDIS_URL_TEST=… make test-backend` | base remise à zéro : compte par défaut et changement imposé, origines, limitation (Redis réel), brouillon → lancement → orchestrateur, SSE et reprise `Last-Event-ID`, réglages, lectures REST, 10 outils MCP par portée, audit, révocation, repartir d'une campagne (contrôles, parents), images (import, doublons, pixels, tests, droits, purge) |
+| Unitaires web | `make test-web` | Vitest en environnement Nuxt : stores campagne et session, aides des écrans, effets calculés, lexique des mutations, formules KaTeX, concordance avec `docs/` |
+| Bout en bout | `E2E_DATABASE_URL=… make e2e` | Playwright, pile complète (API, orchestrateur, Nuxt, proxy à la place de Caddy, port 14000) : présentation, refus, premier accès, campagne suivie en direct jusqu'à la fin, aides et effets des réglages, repartir d'une campagne, images (import, visionneuse, test, suppression), documentation, jetons MCP, déconnexion, affichage téléphone |
 
-La CI lance les quatre niveaux, avec PostgreSQL 18 et Redis 8 en services. Couverture Go mesurée : 82 % des instructions de `internal/`.
+La CI lance les quatre niveaux, avec PostgreSQL 18 et Redis 8 en services. Couverture Go mesurée : 80 % des instructions de `internal/`.
+
+## Documentation
+
+Dans l'application : menu **Documentation**. Dans le dépôt : [fonctionnement](docs/fonctionnement-campagne.md), [modèle mathématique](docs/modele-mathematique.md), guides d'écran [Nouvelle campagne](docs/guide-nouvelle-campagne.md), [suivi d'une campagne](docs/guide-suivi-campagne.md) et [Images](docs/guide-images.md). Les deux versions viennent des mêmes données (`web/app/utils/`) ; un test vérifie qu'elles concordent.
 
 ## Notes techniques
 
 - Redis ne sert qu'aux compteurs de tentatives. S'il ne répond pas, l'API passe en mémoire après un essai de 300 ms au plus, réessaie toutes les 30 s et l'écrit une fois dans le journal ; `/api/health` (champ `redis`) et la métrique `mammomesh_redis_up` en donnent l'état.
-- Versions (mise à jour du 26 octobre 2026) : Go 1.27, SDK MCP v1.8 (protocole 2026-07-28), pgx 5.11, chi 5.5, go-redis 9.23 ; Nuxt 4.6, Pinia 4.1, ECharts 6.1, TypeScript 6.0 ; Node 24 LTS, Vitest 5, Playwright 1.64 ; PostgreSQL 18, Redis 8, Caddy 2.11, SeaweedFS 4.51, Prometheus 3.15, Grafana 13.2.
+- Versions (mise à jour du 26 octobre 2026) : Go 1.27, SDK MCP v1.8 (protocole 2026-07-28), pgx 5.11, chi 5.5, go-redis 9.23 ; Nuxt 4.6, Pinia 4.1, ECharts 6.1, TypeScript 6.0 ; Node 24 LTS, Vitest 5, Playwright 1.64, KaTeX 0.19 ; DICOM : suyashkumar/dicom 1.1 ; PostgreSQL 18, Redis 8, Caddy 2.11, SeaweedFS 4.51, Prometheus 3.15, Grafana 13.2.
 - TypeScript reste en 6.0 : la version 7 (réécrite en Go) n'est pas encore prise en charge par vue-tsc, qui sert au contrôle des types.
 - Les modules `golang.org/x/*`, `go.uber.org/atomic` et `go.yaml.in/yaml/v3` sont pris sur leurs dépôts GitHub officiels (directives `replace`) : même code, compilable là où ces domaines sont filtrés.
 - MinIO est remplacé par SeaweedFS (édition communautaire de MinIO archivée en 2026).

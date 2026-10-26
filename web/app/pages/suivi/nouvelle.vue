@@ -109,7 +109,7 @@ async function launch() {
         <li><strong>Vérifier.</strong> « Vérifier la configuration » fige un brouillon identifié par son empreinte, contrôle chaque réglage et estime la durée et le calcul. Rien n'est lancé. Toute modification ensuite efface la vérification : il faut vérifier à nouveau.</li>
         <li><strong>Lancer.</strong> Réservé au responsable scientifique et à l'administrateur ; un brouillon ne se lance qu'une fois. L'orchestrateur prend la campagne dans la seconde et le suivi s'ouvre en direct.</li>
       </ol>
-      <p class="muted small">La boucle CNN + CephaloMesh est simulée dans cette version : les exemples chiffrés des aides viennent de la simulation. Fonctionnement complet d'une campagne : <NuxtLink to="/suivi/fonctionnement">Fonctionnement</NuxtLink> · guide détaillé : <code>docs/guide-nouvelle-campagne.md</code>.</p>
+      <p class="muted small">La boucle CNN + CephaloMesh est simulée dans cette version : les exemples chiffrés des aides viennent de la simulation. Fonctionnement complet d'une campagne : <NuxtLink to="/suivi/documentation">Documentation</NuxtLink> · guide détaillé : <code>docs/guide-nouvelle-campagne.md</code>.</p>
     </details>
     <p v-if="error" class="alert">{{ error }}</p>
     <section v-if="source && config?.depart" class="card depart" aria-labelledby="depart-titre">

@@ -99,3 +99,11 @@ describe('guide de l\'écran de suivi', async () => {
     }
   })
 })
+
+describe('premiers réalisables après un départ', () => {
+  it('soustrait l\'avancée acquise', () => {
+    expect(premiersRealisables(0.85)).toBe(17)
+    expect(premiersRealisables(0.85, 2000, 12)).toBe(5)
+    expect(premiersRealisables(0.85, 2000, 40)).toBe(1)
+  })
+})

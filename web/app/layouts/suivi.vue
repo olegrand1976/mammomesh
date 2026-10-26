@@ -13,7 +13,7 @@ const session = useSessionStore()
           <NuxtLink v-if="session.permissions?.proposer_config" to="/suivi/nouvelle">Nouvelle campagne</NuxtLink>
           <NuxtLink to="/suivi/jetons">Jetons MCP</NuxtLink>
           <NuxtLink to="/suivi/images">Images</NuxtLink>
-          <NuxtLink to="/suivi/fonctionnement">Fonctionnement</NuxtLink>
+          <NuxtLink to="/suivi/documentation">Documentation</NuxtLink>
         </nav>
         <div class="spacer" />
         <NuxtLink v-if="session.user" to="/suivi/compte" class="small muted account" title="Mon compte">{{ session.user.display_name || session.user.username }}<span class="hide-sm"> · {{ roleLabel[session.user.role] }}</span></NuxtLink>
@@ -32,7 +32,8 @@ header.app { background: var(--surface); border-bottom: 1px solid var(--border);
 .brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: var(--text); margin-right: 16px; }
 .brand:hover { text-decoration: none; }
 nav a { color: var(--muted); padding: 4px 6px; border-radius: 6px; }
-nav a.router-link-exact-active { color: var(--text); background: var(--surface-2); text-decoration: none; }
+nav a.router-link-exact-active,
+nav a.router-link-active:not([href="/suivi"]) { color: var(--text); background: var(--surface-2); text-decoration: none; }
 .account { color: var(--muted); }
 .research-band { background: var(--surface-2); color: var(--muted); font-size: 0.78rem; text-align: center; padding: 3px; }
 .main { padding-top: 20px; padding-bottom: 40px; }

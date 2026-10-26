@@ -37,7 +37,7 @@ onBeforeUnmount(() => store.disconnect())
         <li><strong>Front de Pareto</strong> : les meilleurs compromis sensibilité / coût ; un clic sur un point ouvre sa fiche.</li>
         <li><strong>Journal</strong> : chaque événement en phrase, le plus récent en tête.</li>
       </ol>
-      <p class="muted small">Tout se met à jour en direct, sans recharger. Chaque zone a son bouton <span class="q">?</span>. Fonctionnement complet et lexique des mutations : <NuxtLink to="/suivi/fonctionnement">Fonctionnement</NuxtLink> · guide détaillé : <code>docs/guide-suivi-campagne.md</code>.</p>
+      <p class="muted small">Tout se met à jour en direct, sans recharger. Chaque zone a son bouton <span class="q">?</span>. Fonctionnement complet et lexique des mutations : <NuxtLink to="/suivi/documentation">Documentation</NuxtLink> · guide détaillé : <code>docs/guide-suivi-campagne.md</code>.</p>
     </details>
     <p v-if="error" class="alert">{{ error }}</p>
     <div v-if="store.campaign" class="grid">

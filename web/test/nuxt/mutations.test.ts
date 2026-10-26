@@ -47,3 +47,26 @@ describe('fonctionnement d\'une campagne', () => {
     for (const m of mutations) expect(doc).toContain(`| \`${m.famille}\` | ${m.partie} | ${m.gene} | ${m.role} | ${m.effet} |`)
   })
 })
+
+describe('modèle mathématique et guide Images', async () => {
+  const { partiesMath } = await import('~/utils/mathematique')
+  const { zonesImages } = await import('~/utils/guideImages')
+  const katex = (await import('katex')).default
+  it('chaque formule se compile sans erreur KaTeX', () => {
+    for (const p of partiesMath) for (const b of p.blocs) {
+      if (b.formule) expect(() => katex.renderToString(b.formule!, { displayMode: true, throwOnError: true, strict: 'ignore' }), b.formule).not.toThrow()
+    }
+  })
+  it('les documents du dépôt reprennent mot pour mot les pages', () => {
+    const math = readFileSync(resolve(racine, '../docs/modele-mathematique.md'), 'utf8')
+    for (const p of partiesMath) {
+      expect(math).toContain(`## ${p.titre}`)
+      for (const b of p.blocs) {
+        if (b.p) expect(math).toContain(b.p)
+        if (b.formule) expect(math).toContain(`$$\n${b.formule}\n$$`)
+      }
+    }
+    const img = readFileSync(resolve(racine, '../docs/guide-images.md'), 'utf8')
+    for (const z of zonesImages) for (const e of z.elements) expect(img).toContain(`| ${e.nom} | ${e.description} |`)
+  })
+})

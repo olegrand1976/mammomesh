@@ -22,6 +22,7 @@ export default defineNuxtConfig({
     '/': { prerender: true },
     '/login': { ssr: false },
     '/suivi/**': { ssr: false },
+    '/suivi/fonctionnement': { redirect: '/suivi/documentation/fonctionnement' },
   },
   nitro: {
     devProxy: {

@@ -176,11 +176,12 @@ export interface Effets {
  * Premiers individus réalisables dans la simulation, au plus tôt : le plafond simulé monte de 0,80 vers 0,90
  * (0,80 + 0,10 (1 − e^(−g/35))), un individu le dépasse d'au plus 0,035 et sa borne basse est 0,022 plus bas.
  */
-export function premiersRealisables(seuil: number, plafond = 2000): number | null {
+export function premiersRealisables(seuil: number, plafond = 2000, acquis = 0): number | null {
   const besoin = (seuil - 0.813) / 0.1 // part du progrès simulé nécessaire
   if (besoin <= 0) return 1
   if (besoin >= 1) return null
-  const g = Math.ceil(-35 * Math.log(1 - besoin))
+  // acquis : génération de départ quand la campagne repart d'une autre (son avancée est prolongée).
+  const g = Math.ceil(-35 * Math.log(1 - besoin)) - acquis
   return g > plafond ? null : Math.max(1, g)
 }
 
@@ -199,6 +200,6 @@ export function effets(cfg: CampaignConfig): Effets {
     coutMax: cg * gens,
     arretBudget: arret !== null && arret < gens ? arret : null,
     mutations: mutationsMoyennes(cfg.evolution.mutations_mu, cfg.evolution.mutations_max),
-    premiersRealisables: premiersRealisables(seuil, gens),
+    premiersRealisables: premiersRealisables(seuil, gens, cfg.depart?.generation ?? 0),
   }
 }

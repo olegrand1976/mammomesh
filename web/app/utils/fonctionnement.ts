@@ -1,4 +1,4 @@
-// Fonctionnement complet d'une campagne : source unique de la page /suivi/fonctionnement
+// Fonctionnement complet d'une campagne : source unique de la page Documentation › Fonctionnement (/suivi/documentation/fonctionnement)
 // et de docs/fonctionnement-campagne.md (un test vérifie la concordance).
 
 export interface Bloc {
@@ -128,6 +128,20 @@ export const parties: Partie[] = [
           'Après une coupure, le navigateur se reconnecte et reprend après le dernier événement reçu ; si trop d\'événements ont été manqués, l\'écran relit toutes ses données de lui-même.',
         ],
       },
+    ],
+  },
+  {
+    id: 'images',
+    titre: 'Tester une version sur une image',
+    blocs: [
+      {
+        etapes: [
+          'Importer une mammographie DICOM (écran « Images ») : le serveur ne garde que les pixels et des données techniques ; aucun en-tête identifiant, ni le nom du fichier.',
+          'Choisir une campagne, une génération (la finale par défaut) et un individu de son front (le meilleur sur E-val par défaut).',
+          'Lancer le test : score de l\'image, temps de calcul et zones signalées s\'affichent sur l\'image ; le test est gardé et inscrit à l\'audit.',
+        ],
+      },
+      { p: 'Dans ce socle, le résultat est simulé de façon déterministe à partir de l\'image et de l\'individu, sans aucune valeur ; le parcours est prêt pour le vrai moteur.' },
     ],
   },
   {

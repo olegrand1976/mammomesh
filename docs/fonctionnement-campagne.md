@@ -70,6 +70,14 @@ Le premier critère atteint l'emporte ; le journal indique lequel.
 - La progression des lots est fusionnée : au plus un message toutes les 2 secondes par campagne, pour ne pas saturer les navigateurs.
 - Après une coupure, le navigateur se reconnecte et reprend après le dernier événement reçu ; si trop d'événements ont été manqués, l'écran relit toutes ses données de lui-même.
 
+## Tester une version sur une image
+
+1. Importer une mammographie DICOM (écran « Images ») : le serveur ne garde que les pixels et des données techniques ; aucun en-tête identifiant, ni le nom du fichier.
+2. Choisir une campagne, une génération (la finale par défaut) et un individu de son front (le meilleur sur E-val par défaut).
+3. Lancer le test : score de l'image, temps de calcul et zones signalées s'affichent sur l'image ; le test est gardé et inscrit à l'audit.
+
+Dans ce socle, le résultat est simulé de façon déterministe à partir de l'image et de l'individu, sans aucune valeur ; le parcours est prêt pour le vrai moteur.
+
 ## Ce qui changera avec la vraie boucle
 
 - Deux vitesses : le CNN évolue lentement (des heures par évaluation), CephaloMesh rapidement (0,2 à 0,5 ms par examen), sur des sorties du CNN mises en cache.

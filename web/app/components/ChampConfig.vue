@@ -29,7 +29,7 @@ function onInput(e: Event) {
 </script>
 
 <template>
-  <div v-if="guide" class="field champ" :class="{ modifie }">
+  <div v-if="guide" class="field champ" :class="{ modifie, ouverte: ouvert }">
     <div class="tete">
       <label :for="id">{{ guide.libelle }}</label>
       <button type="button" class="aide-btn" :aria-expanded="ouvert" :aria-controls="id + '-aide'"
@@ -63,7 +63,9 @@ function onInput(e: Event) {
 .info { margin: 3px 0 0; font-size: 0.76rem; color: var(--muted); }
 .modifie input { border-color: var(--accent); }
 .modifie strong { color: var(--accent); font-weight: 600; }
-.lien { border: 0; background: none; color: var(--accent); font: inherit; padding: 0; cursor: pointer; text-decoration: underline; }
+/* Aide ouverte : le champ prend toute la largeur de sa grille, l'aide reste lisible. */
+.champ.ouverte { grid-column: 1 / -1; }
+.lien { margin-left: 6px; border: 0; background: none; color: var(--accent); font: inherit; padding: 0; cursor: pointer; text-decoration: underline; }
 .aide { margin-top: 6px; padding: 8px 10px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 6px 6px 0; font-size: 0.84rem; }
 .aide p { margin: 0 0 6px; }
 .aide p:last-child { margin: 0; }

@@ -20,6 +20,7 @@ La conception complète (protocole, garde-fous, pile, déploiement) est dans la 
 | Documentation intégrée : fonctionnement, modèle mathématique (KaTeX), guides d'écran, lexique des mutations | fait, aussi dans `docs/` |
 | Docker compose : Caddy, web, api, orchestrator, migrate, PostgreSQL 18, Redis 8, SeaweedFS, sauvegarde, observabilité | fait |
 | Boucle CNN + CephaloMesh | **simulée** (déterministe) : le vrai couple arrive aux jalons 1 à 3 |
+| CNN de base (EfficientNet-B0, malin ou bénin sur CMMD) | code prêt (`engine/mammomesh_engine/cnn`), entraînement à lancer sur GPU ; pas encore branché au test d'image |
 | Banque d'entraînement, chaîne d'import DICOM complète (JPEG 2000, pseudonymisation de la banque), moteur d'analyse, Triton, entraînement | jalons 0 et 1 |
 
 ## Architecture
@@ -96,6 +97,25 @@ cd engine && python3 -m mammomesh_engine.materiel --json
 
 `MAMMOMESH_MATERIEL=machine.json` simule une autre machine (même format que `--json`, clé `materiel`).
 
+## Premier CNN (jalon 1, étape 1)
+
+`mammomesh_engine.cnn` entraîne un premier CNN sur CMMD : EfficientNet-B0, qui donne la probabilité qu'un sein portant une anomalie soit malin (prouvé par biopsie). CMMD n'a pas de contours de lésions : ce modèle donne un score par image, pas de zones. Outil de recherche : aucun résultat ne sert à un diagnostic.
+
+```bash
+cd engine
+python3 -m venv .venv && . .venv/bin/activate
+pip install torch torchvision          # Linux : variante CUDA ; si le pilote est plus ancien, prendre la commande de pytorch.org
+pip install -e '.[cnn]'
+python -m mammomesh_engine.cnn --banque ../banque --limite 100 --epoques 2         # essai rapide
+python -m mammomesh_engine.cnn --banque ../banque                                   # ou --banque /mnt/llit-nas/mammomesh/banque
+```
+
+- **Index** : une ligne par image étiquetée (le sein opposé, sans étiquette, est écarté) ; découpage par patiente, stratifié, en entraînement (70 %), ajustement E-ajust (15 %) et validation E-val (15 %), reproductible (`--graine`).
+- **Prétraitement** : sein orienté à gauche, recadré sur le tissu, mis en 1024 × 832 (PNG 8 bits dans `./cache/cnn`, environ 2 Go). La place libre est contrôlée avant d'écrire (`MARGE_GO`, 10 Go par défaut).
+- **Entraînement** : réglé par le plan matériel (appareil, précision, workers) ; sur GPU, le lot est mesuré par `calibrer()`, et la résolution descend (768 × 624, puis 512 × 416) si l'image entière ne tient pas. Poids ImageNet au départ (`--sans-preentrainement` pour partir de zéro), arrêt quand l'AUC par sein en ajustement ne progresse plus (`--patience`).
+- **Résultat** dans `./modeles/cnn-cmmd-AAAAMMJJ-HHMM/` : `modele.pt` (meilleure époque, seuil inclus), `journal.csv`, `rapport.json`. Le seuil est choisi en ajustement pour une sensibilité de 0,85 par sein (`--sensibilite-cible`) ; AUC, sensibilité et spécificité finales sont mesurées en validation, sur des patientes jamais vues.
+- Les poids ImageNet de torchvision viennent d'un jeu d'images sous conditions non commerciales : à réexaminer avant tout usage commercial (ou entraîner avec `--sans-preentrainement`).
+
 ## Brancher Claude Code (MCP)
 
 1. Dans l'interface, page **Jetons MCP** : créer un jeton « lecture » ou « proposition » (90 jours, révocable).
@@ -144,7 +164,7 @@ Serveur MCP en stdio pour le développement : `MAMMOMESH_MCP_TOKEN=mmk_... go ru
 |---|---|---|
 | Unitaires Go | `make test-backend` | mots de passe, limiteur (Redis absent, gelé, rétabli), configuration et secrets, contrôles de configuration, simulation déterministe et départ, SSE, cache MCP, import DICOM (pseudonymisation, refus), test simulé, stockages (`MAMMOMESH_FILER_TEST` : vrai filer SeaweedFS) |
 | Intégration Go | `DATABASE_URL_TEST=… REDIS_URL_TEST=… make test-backend` | base remise à zéro : compte par défaut et changement imposé, origines, limitation (Redis réel), brouillon → lancement → orchestrateur, SSE et reprise `Last-Event-ID`, réglages, lectures REST, 10 outils MCP par portée, audit, révocation, repartir d'une campagne (contrôles, parents), images (import, doublons, pixels, tests, droits, purge) |
-| Moteur Python | `make test-engine` | plan d'exécution sur des machines types (portable A1000, serveur 2 × A100, CPU seul, Pascal, petit GPU, Arc, Iris Xe), lecture de `nvidia-smi`, machine simulée, calibrage du lot et cache |
+| Moteur Python | `make test-engine` | CNN de base (découpage par patiente, données cliniques, AUC et seuil, prétraitement, refus faute de place) ; plan d'exécution sur des machines types (portable A1000, serveur 2 × A100, CPU seul, Pascal, petit GPU, Arc, Iris Xe), lecture de `nvidia-smi`, machine simulée, calibrage du lot et cache |
 | Unitaires web | `make test-web` | Vitest en environnement Nuxt : stores campagne et session, aides des écrans, effets calculés, lexique des mutations, formules KaTeX, concordance avec `docs/` |
 | Bout en bout | `E2E_DATABASE_URL=… make e2e` | Playwright, pile complète (API, orchestrateur, Nuxt, proxy à la place de Caddy, port 14000) : présentation, refus, premier accès, campagne suivie en direct jusqu'à la fin, aides et effets des réglages, repartir d'une campagne, images (import, visionneuse, test, suppression), documentation, jetons MCP, déconnexion, affichage téléphone |
 

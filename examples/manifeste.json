@@ -100,5 +100,33 @@
       "licence": "CC BY 3.0", "doi": "10.7937/K9/TCIA.2016.7O02S9CY",
       "contenu": "DDSM, microcalcifications, sein droit CC (environ 28 Mo)"
     }
+  ],
+  "banque": [
+    {
+      "nom": "CBIS-DDSM", "source": "tcia", "collection": "CBIS-DDSM", "taille_go": 163.5,
+      "licence": "CC BY 3.0", "usage_commercial": true, "doi": "10.7937/K9/TCIA.2016.7O02S9CY",
+      "contenu": "DDSM (films numérisés) : 1 566 patientes, 10 239 images ; images complètes, découpes et masques ROI ; pathologie",
+      "metadonnees": [
+        "https://www.cancerimagingarchive.net/wp-content/uploads/mass_case_description_train_set.csv",
+        "https://www.cancerimagingarchive.net/wp-content/uploads/calc_case_description_train_set.csv",
+        "https://www.cancerimagingarchive.net/wp-content/uploads/mass_case_description_test_set.csv",
+        "https://www.cancerimagingarchive.net/wp-content/uploads/calc_case_description_test_set.csv"
+      ]
+    },
+    {
+      "nom": "CMMD", "source": "tcia", "collection": "CMMD", "taille_go": 22.9,
+      "licence": "CC BY 4.0", "usage_commercial": true, "doi": "10.7937/tcia.eqde-4b16",
+      "contenu": "Chinese Mammography Database : 1 775 patientes, mammographies numériques, bénin ou malin (biopsie), sous-types moléculaires pour 749",
+      "metadonnees": [
+        "https://www.cancerimagingarchive.net/wp-content/uploads/CMMD_clinicaldata_revision.xlsx"
+      ]
+    },
+    {
+      "nom": "NLBS", "source": "frdr", "taille_go": 350,
+      "licence": "CC BY 4.0", "usage_commercial": true, "doi": "10.20383/103.01526",
+      "contenu": "NL-Breast-Screen (Terre-Neuve-et-Labrador), version 3 : 5 997 examens de dépistage, 26 988 images DICOM 16 bits, 149 cancers prouvés par biopsie ; sans annotation de lésion",
+      "page": "https://www.frdr-dfdr.ca/repo/dataset/2af839d4-d54f-48d7-9a1a-a00e57fe72ea",
+      "globus": "https://globus.frdr.ca/file-manager?origin_id=f163c1b3-9c88-42f6-a7bb-5839ed6c4063&origin_path=%2F1%2Fpublished%2Fpublication_1521%2Fsubmitted_data"
+    }
   ]
 }

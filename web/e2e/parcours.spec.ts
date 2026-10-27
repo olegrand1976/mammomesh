@@ -203,7 +203,7 @@ test('documentation : fonctionnement, modèle mathématique, guides, lexique', a
   expect(await page.locator('.katex-display').count()).toBeGreaterThan(20)
   await expect(page.locator('.katex-error')).toHaveCount(0)
   await page.getByRole('link', { name: 'Documentation' }).last().click()
-  for (const [lien, titre] of [['Guide : Nouvelle campagne', 'Plancher de sensibilité'], ['Guide : suivi d\'une campagne', 'Front de Pareto'], ['Guide : Images', 'Visionneuse'], ['Lexique des mutations', 'Seuil de déclenchement']]) {
+  for (const [lien, titre] of [['Guide : Nouvelle campagne', 'Plancher de sensibilité'], ['Guide : suivi d\'une campagne', 'Front de Pareto'], ['Guide : Images', 'Visionneuse'], ['Lexique des mutations', 'Seuil de déclenchement'], ['Jeux d\'entraînement', 'CBIS-DDSM']]) {
     await page.goto('/suivi/documentation')
     await page.getByRole('link', { name: new RegExp(lien) }).click()
     await expect(page.getByText(titre).first()).toBeVisible()

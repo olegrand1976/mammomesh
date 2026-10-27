@@ -1,5 +1,5 @@
 # Raccourcis de développement. La production passe par docker compose (voir README).
-.PHONY: secrets up down logs test test-backend test-web test-engine e2e dev-api dev-orchestrator dev-web ca exemples materiel
+.PHONY: secrets up down logs test test-backend test-web test-engine e2e dev-api dev-orchestrator dev-web ca exemples banque materiel
 
 secrets:
 	./scripts/init-secrets.sh
@@ -57,3 +57,8 @@ dev-web:
 # DICOM d'exemple de sources libres (examples/README.md) ; EXEMPLES_OPTS=--sans-tcia pour GitHub seul.
 exemples:
 	./examples/telecharger.sh $(EXEMPLES_OPTS)
+
+# Banque d'entraînement (jalon 0) : BANQUE=tout|CBIS-DDSM|CMMD|NLBS, BANQUE_DIR=disque dédié.
+BANQUE ?= tout
+banque:
+	./examples/telecharger.sh --banque $(BANQUE)

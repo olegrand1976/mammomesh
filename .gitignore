@@ -32,3 +32,6 @@ examples/tcia/
 # Python (engine/)
 __pycache__/
 *.egg-info/
+
+# Banque d'entraînement (examples/telecharger.sh --banque)
+banque/

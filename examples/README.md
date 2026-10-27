@@ -51,6 +51,32 @@ Les fichiers sont nommés `tcia/<collection>/<patiente>_<n>.dcm`. Pour CBIS-DDSM
 
 Les conditions de TCIA interdisent toute tentative de réidentification des patientes.
 
+## Banque d'entraînement (jalon 0)
+
+Collections complètes, sous licence CC BY (usage commercial permis, citation obligatoire). Elles sont décrites dans la clé `banque` du manifeste. Le choix des jeux, ceux à demander ou écartés, les citations et les sources sont dans [docs/jeux-entrainement.md](../docs/jeux-entrainement.md).
+
+| Nom | Contenu | Volume | Licence |
+|---|---|---|---|
+| `CBIS-DDSM` | 1 566 patientes, 10 239 images (complètes, découpes, masques ROI), descriptions CSV | ~164 Go | CC BY 3.0 |
+| `CMMD` | 1 775 patientes, bénin ou malin prouvé par biopsie, données cliniques XLSX | ~23 Go | CC BY 4.0 |
+| `NLBS` | 5 997 examens de dépistage, 26 988 images, 149 cancers, CSV des étiquettes ; sans annotation de lésion | ~350 Go (archives) | CC BY 4.0 |
+
+```sh
+BANQUE_DIR=/chemin/disque ./examples/telecharger.sh --banque CMMD    # ou CBIS-DDSM, NLBS, tout
+make banque BANQUE=CMMD BANQUE_DIR=/chemin/disque
+```
+
+- **Espace disque** : avant chaque collection, le script calcule ce qui reste à télécharger (tailles publiées par TCIA) et refuse de démarrer si le disque ne peut pas tout recevoir en gardant `MARGE_GO` libres (10 par défaut). Il recontrôle avant chaque série et s'arrête proprement si la place vient à manquer. Pour NLBS, il contrôle aussi la taille décompressée avant l'extraction.
+- **Reprise** : relancer la même commande. Les séries terminées (marqueur `.ok`, nombre d'images vérifié) sont sautées ; les échecs sont listés dans `tcia/<collection>/.echecs`.
+- **Parallélisme** : `PARALLELE` séries à la fois (4 par défaut).
+- **NLBS** : FRDR ne publie pas de lien direct. Le script vérifie la place et indique la marche à suivre : transfert Globus (ou « Download as Zip », puis dézipper) des archives `.7z` et du CSV vers `BANQUE_DIR/nlbs/archives`, puis relance pour l'extraction (`7z`, paquet `p7zip-full`). Les archives ne sont pas supprimées.
+- **Arborescence** : `tcia/<collection>/<PatientID>/<SeriesInstanceUID>/*.dcm`, `tcia/<collection>/series.json` (liste TCIA), `tcia/<collection>/metadonnees/`, `nlbs/donnees/`.
+- Par défaut, `BANQUE_DIR` vaut `./banque` (non versionné). Prévoir un disque dédié.
+
+Citation supplémentaire : *Full Field Digital Mammography Dataset from a Population Screening Program* (NL-Breast-Screen), Scientific Data, 2025, doi:[10.1038/s41597-025-05866-0](https://doi.org/10.1038/s41597-025-05866-0) ; données : FRDR, doi:[10.20383/103.01526](https://doi.org/10.20383/103.01526).
+
+Non retenues pour l'instant (licence non commerciale ou à vérifier) : RSNA-SMBC, EMBED, VinDr-Mammo. À demander plus tard : CSAW-CC (CC BY 4.0, sur demande, ~2,5 To).
+
 ## Tests
 
 `make exemples` lance le script. `go test -count=1 ./internal/imagerie -run TestExemples` (dans `backend/`) importe chaque fichier GitHub présent et vérifie le résultat attendu du manifeste ; les séries TCIA présentes doivent être acceptées comme MG. Sans fichiers, le test est ignoré.

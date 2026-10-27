@@ -154,7 +154,7 @@ La CI lance les cinq niveaux, avec PostgreSQL 18 et Redis 8 en services. Couvert
 
 ## Documentation
 
-Dans l'application : menu **Documentation**. Dans le dépôt : [fonctionnement](docs/fonctionnement-campagne.md), [modèle mathématique](docs/modele-mathematique.md), guides d'écran [Nouvelle campagne](docs/guide-nouvelle-campagne.md), [suivi d'une campagne](docs/guide-suivi-campagne.md) et [Images](docs/guide-images.md). Les deux versions viennent des mêmes données (`web/app/utils/`) ; un test vérifie qu'elles concordent.
+Dans l'application : menu **Documentation**. Dans le dépôt : [fonctionnement](docs/fonctionnement-campagne.md), [modèle mathématique](docs/modele-mathematique.md), guides d'écran [Nouvelle campagne](docs/guide-nouvelle-campagne.md), [suivi d'une campagne](docs/guide-suivi-campagne.md) et [Images](docs/guide-images.md), [jeux d'entraînement](docs/jeux-entrainement.md) (banque du jalon 0 : licences, téléchargement, citations, sources). Les deux versions viennent des mêmes données (`web/app/utils/`) ; un test vérifie qu'elles concordent.
 
 ## Notes techniques
 

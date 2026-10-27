@@ -15,6 +15,12 @@ export interface ResumeEntrainement {
   auc_sein_validation: number | null
   message?: string
   avec_etat: boolean
+  duree_epoque_s?: number | null
+  pas?: number
+  pas_par_epoque?: number
+  debut_epoque?: string
+  debut_phase?: string
+  patience?: number
 }
 
 export interface EtatEntrainement {
@@ -111,4 +117,122 @@ export function duree(secondes: number | null | undefined): string {
   const m = Math.round(s / 60)
   if (m < 60) return `${m} min`
   return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`
+}
+
+// ---------- Estimation des temps de fin ----------
+
+/** Relevé pris par la page à chaque rafraîchissement : sert à mesurer la vitesse réelle. */
+export interface Releve { t: number; phase: string; epoque: number; pas: number; pretraites: number }
+
+export interface Vitesse { pas: number | null; images: number | null }
+
+const FENETRE_MS = 3 * 60_000
+const ECART_MIN_MS = 15_000
+
+/** Vitesse observée entre le plus ancien et le plus récent relevé des 3 dernières minutes, dans la même phase et la même époque. */
+export function vitesseObservee(releves: Releve[]): Vitesse {
+  const dernier = releves.at(-1)
+  if (!dernier) return { pas: null, images: null }
+  const fenetre = releves.filter(r => dernier.t - r.t <= FENETRE_MS && r.phase === dernier.phase && r.epoque === dernier.epoque)
+  const premier = fenetre[0]!
+  const dt = (dernier.t - premier.t) / 1000
+  if (dt * 1000 < ECART_MIN_MS) return { pas: null, images: null }
+  const v = (a: number, b: number) => (b > a ? (b - a) / dt : null)
+  return { pas: v(premier.pas, dernier.pas), images: v(premier.pretraites, dernier.pretraites) }
+}
+
+export interface Estimation {
+  /** Durée d'une époque complète (apprentissage + mesure en ajustement), en secondes. */
+  dureeEpoque: number | null
+  /** Numéro de l'époque en cours et temps restant pour la finir. */
+  epoqueCourante: number | null
+  resteEpoque: number | null
+  /** Fin si toutes les époques prévues sont faites, évaluation finale comprise. */
+  resteMax: number | null
+  /** Fin au plus tôt si l'arrêt anticipé se déclenche (null s'il ne peut pas avancer la fin). */
+  resteMin: number | null
+  epoqueArret: number | null
+  restePretraitement: number | null
+}
+
+type Entree = ResumeEntrainement & { journal?: EpoqueEntrainement[]; etat?: EtatEntrainement | null }
+
+const vide: Estimation = { dureeEpoque: null, epoqueCourante: null, resteEpoque: null, resteMax: null, resteMin: null, epoqueArret: null, restePretraitement: null }
+
+/**
+ * Temps restants, en secondes. Vitesse d'apprentissage, par ordre de préférence : relevés de la page, pas faits
+ * depuis le début de l'époque (etat.json), durée des époques passées. La mesure en ajustement est comptée à
+ * 35 % du coût d'une image d'apprentissage (passage avant seul), l'évaluation finale à deux mesures.
+ */
+export function estimer(d: Entree, maintenant: number, vitesse: Vitesse = { pas: null, images: null }): Estimation {
+  if (d.statut !== 'en_cours') return vide
+  const ms = (s?: string) => (s ? new Date(s).getTime() : NaN)
+  const ecoule = Number.isFinite(ms(d.maj)) ? Math.max(0, (maintenant - ms(d.maj)) / 1000) : 0
+  const est: Estimation = { ...vide }
+
+  if (d.phase === 'pretraitement' && d.etat?.a_pretraiter) {
+    const fait = d.etat.pretraites ?? 0
+    const depuis = (ms(d.maj) - ms(d.debut_phase)) / 1000
+    const v = vitesse.images ?? (fait > 0 && depuis > 0 ? fait / depuis : null)
+    if (v) est.restePretraitement = Math.max(0, (d.etat.a_pretraiter - fait) / v - ecoule)
+    return est
+  }
+  if (d.phase !== 'entrainement' || !d.epoques) return est
+
+  const n = d.pas_par_epoque ?? d.etat?.pas_par_epoque ?? 0
+  const dn = d.etat?.donnees
+  const facteur = 1 + 0.35 * ((dn?.ajustement?.images ?? 0) / (dn?.entrainement?.images || 1) || 0.2)
+  const dTyp = d.duree_epoque_s ?? null
+
+  // Époque en cours et pas faits.
+  let c: number, p: number | null
+  if (d.avec_etat) {
+    const finie = d.etape === 'époque terminée'
+    c = finie ? d.epoque + 1 : Math.max(1, d.epoque)
+    p = finie ? 0 : (d.pas ?? 0)
+  } else {
+    c = (d.journal?.length ?? d.epoque) + 1
+    p = null
+  }
+  if (c > d.epoques) c = d.epoques
+
+  const depuisEpoque = (ms(d.maj) - ms(d.debut_epoque)) / 1000
+  const v = vitesse.pas ?? (p && depuisEpoque > 0 ? p / depuisEpoque : null) ?? (dTyp && n ? (n * facteur) / dTyp : null)
+  const apprentissage = v && n ? n / v : dTyp ? dTyp / facteur : null
+  const mesure = apprentissage !== null ? apprentissage * (facteur - 1) : null
+  est.dureeEpoque = dTyp ?? (apprentissage !== null && mesure !== null ? apprentissage + mesure : null)
+  est.epoqueCourante = c
+
+  if (p !== null && v && n && mesure !== null) {
+    const base = d.etape === 'mesure en ajustement' ? mesure : (n - Math.min(p, n)) / v + mesure
+    est.resteEpoque = Math.max(0, base - ecoule)
+  } else if (dTyp) {
+    est.resteEpoque = Math.max(0, dTyp - ecoule)
+  }
+  if (est.resteEpoque === null || est.dureeEpoque === null) return est
+
+  const finale = 2 * (mesure ?? 0)
+  const apres = (derniere: number) => est.resteEpoque! + Math.max(0, derniere - c) * est.dureeEpoque! + finale
+  est.resteMax = apres(d.epoques)
+
+  // Arrêt anticipé : pas de progrès de l'AUC par sein pendant « patience » époques après la meilleure.
+  const j = d.journal ?? []
+  if (j.length) {
+    let meilleure = 0
+    let auc = -1
+    for (const e of j) if ((e.auc_sein ?? -1) > auc) { auc = e.auc_sein ?? -1; meilleure = e.epoque }
+    const arret = Math.max(c, Math.min(d.epoques, meilleure + (d.patience || 5)))
+    if (arret < d.epoques) {
+      est.epoqueArret = arret
+      est.resteMin = apres(arret)
+    }
+  }
+  return est
+}
+
+/** « 16:40 », ou « mer. 16:40 » si ce n'est pas aujourd'hui. */
+export function heureFin(maintenant: number, resteS: number): string {
+  const fin = new Date(maintenant + resteS * 1000)
+  const h = fin.toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' })
+  return fin.toDateString() === new Date(maintenant).toDateString() ? h : `${fin.toLocaleDateString('fr-BE', { weekday: 'short' })} ${h}`
 }

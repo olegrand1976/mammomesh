@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { fr } from '~/types'
 import {
-  avancement, duree, dureeMoyenneEpoque, phaseEntrainement, repartir, statutEntrainement,
-  type DetailEntrainement, type ResumeEntrainement, type VueEntrainements,
+  avancement, duree, estimer, heureFin, phaseEntrainement, repartir, statutEntrainement, vitesseObservee,
+  type DetailEntrainement, type Releve, type ResumeEntrainement, type VueEntrainements,
 } from '~/utils/entrainements'
 
 definePageMeta({ layout: 'suivi', middleware: 'auth' })
@@ -28,6 +28,8 @@ const affiches = computed(() => groupes.value[vue.value])
 const choisi = computed(() => (typeof route.query.nom === 'string' ? route.query.nom : affiches.value[0]?.nom ?? ''))
 const onglets: { cle: VueEntrainements; libelle: string }[] = [{ cle: 'en-cours', libelle: 'En cours' }, { cle: 'finalises', libelle: 'Finalisés' }]
 let minuteur: ReturnType<typeof setInterval> | undefined
+const maintenant = ref(Date.now())
+const releves = ref<(Releve & { nom: string })[]>([])
 
 async function charger() {
   try {
@@ -37,6 +39,13 @@ async function charger() {
     detail.value = choisi.value
       ? (await api<{ entrainement: DetailEntrainement }>(`/entrainements/${encodeURIComponent(choisi.value)}`)).entrainement
       : null
+    maintenant.value = Date.now()
+    const d = detail.value
+    if (d) {
+      if (releves.value[0] && releves.value[0].nom !== d.nom) releves.value = []
+      releves.value = [...releves.value, { nom: d.nom, t: maintenant.value, phase: d.phase, epoque: d.etat?.pas !== undefined ? d.epoque : d.journal.length,
+        pas: d.etat?.pas ?? 0, pretraites: d.etat?.pretraites ?? 0 }].slice(-60)
+    }
     erreur.value = ''
   } catch (e) {
     erreur.value = (e as Error).message
@@ -54,12 +63,12 @@ const statut = (s: string) => statutEntrainement[s] ?? { libelle: s, classe: '' 
 const phase = (s: string) => phaseEntrainement[s] ?? s
 const date = (s?: string) => (s ? new Date(s).toLocaleString('fr-BE') : '—')
 const pct = computed(() => (detail.value ? avancement(detail.value) : null))
-const restant = computed(() => {
-  const d = detail.value
-  const m = d ? dureeMoyenneEpoque(d.journal) : null
-  if (!d || d.statut !== 'en_cours' || !m || !d.epoques || pct.value === null) return null
-  return m * d.epoques * (1 - pct.value)
-})
+const estimation = computed(() => (detail.value ? estimer(detail.value, maintenant.value, vitesseObservee(releves.value)) : null))
+const finListe = (e: ResumeEntrainement) => {
+  const r = estimer(e, maintenant.value).resteMax
+  return r === null ? '—' : heureFin(maintenant.value, r)
+}
+const quand = (reste: number) => `dans ${duree(reste)} (vers ${heureFin(maintenant.value, reste)})`
 
 const option = computed(() => {
   const j = detail.value?.journal ?? []
@@ -106,7 +115,7 @@ const option = computed(() => {
 
     <section class="card">
       <div v-if="affiches.length" class="table-wrap"><table>
-        <thead><tr><th>Entraînement</th><th>État</th><th>Phase</th><th>Époque</th><th>Meilleure AUC (ajustement)</th><th class="hide-sm">AUC validation</th><th class="hide-sm">{{ vue === 'finalises' ? 'Fin' : 'Dernière nouvelle' }}</th></tr></thead>
+        <thead><tr><th>Entraînement</th><th>État</th><th>Phase</th><th>Époque</th><th>Meilleure AUC (ajustement)</th><th class="hide-sm">AUC validation</th><th v-if="vue === 'en-cours'">Fin estimée</th><th class="hide-sm">{{ vue === 'finalises' ? 'Fin' : 'Dernière nouvelle' }}</th></tr></thead>
         <tbody>
           <tr v-for="e in affiches" :key="e.nom" :class="{ choisi: e.nom === detail?.nom }">
             <td><a href="#" @click.prevent="router.replace({ query: { vue, nom: e.nom } })">{{ e.nom }}</a></td>
@@ -115,6 +124,7 @@ const option = computed(() => {
             <td>{{ e.epoque }}<template v-if="e.epoques"> / {{ e.epoques }}</template></td>
             <td>{{ fr(e.meilleure_auc_sein) }}</td>
             <td class="hide-sm">{{ fr(e.auc_sein_validation) }}</td>
+            <td v-if="vue === 'en-cours'" class="small" title="Au plus tard, si toutes les époques prévues sont faites">{{ finListe(e) }}</td>
             <td class="small hide-sm">{{ date(e.maj) }}</td>
           </tr>
         </tbody>
@@ -136,10 +146,30 @@ const option = computed(() => {
       <div v-if="pct !== null" class="barre" role="progressbar" :aria-valuenow="Math.round(pct * 100)" aria-valuemin="0" aria-valuemax="100">
         <div :style="{ width: `${(pct * 100).toFixed(1)}%` }" />
       </div>
-      <p class="small muted">
-        Lancé le {{ date(detail.debut) }} · dernière nouvelle {{ date(detail.maj) }}
-        <template v-if="restant !== null"> · fin estimée dans {{ duree(restant) }} (au plus, l'arrêt anticipé peut l'avancer)</template>
-      </p>
+      <p class="small muted">Lancé le {{ date(detail.debut) }} · dernière nouvelle {{ date(detail.maj) }}</p>
+      <div v-if="estimation && detail.statut === 'en_cours'" class="temps">
+        <h3>Temps estimés</h3>
+        <ul>
+          <li v-if="estimation.restePretraitement !== null"><strong>Prétraitement</strong> : fin {{ quand(estimation.restePretraitement) }}</li>
+          <li v-if="estimation.resteEpoque !== null">
+            <strong>Époque {{ estimation.epoqueCourante }} / {{ detail.epoques }}</strong> : fin {{ quand(estimation.resteEpoque) }}
+            <template v-if="estimation.dureeEpoque !== null"> · une époque dure environ {{ duree(estimation.dureeEpoque) }}</template>
+          </li>
+          <li v-if="estimation.resteMax !== null">
+            <strong>Fin de l'entraînement</strong> : au plus tard {{ quand(estimation.resteMax) }}, si les {{ detail.epoques }} époques sont faites
+          </li>
+          <li v-if="estimation.resteMin !== null">
+            au plus tôt {{ quand(estimation.resteMin) }}, si l'AUC ne progresse plus d'ici l'époque {{ estimation.epoqueArret }} (arrêt anticipé)
+          </li>
+          <li v-if="estimation.resteEpoque === null && estimation.restePretraitement === null" class="muted">
+            Pas encore d'estimation : il faut quelques pas d'apprentissage ({{ phase(detail.phase).toLowerCase() }} en cours).
+          </li>
+        </ul>
+        <p class="small muted">
+          Estimations recalculées à chaque rafraîchissement, d'après la vitesse mesurée ; la première époque, qui compile le modèle,
+          est plus longue que les suivantes. L'évaluation finale (ajustement et validation) est comprise.
+        </p>
+      </div>
       <p v-if="detail.statut === 'sans_nouvelles'" class="alert">
         Aucune nouvelle depuis longtemps : l'entraînement s'est peut-être arrêté sans le signaler (machine éteinte, processus tué).
       </p>
@@ -190,6 +220,8 @@ const option = computed(() => {
 .valeur { font-size: 1.3rem; font-weight: 600; }
 .plan pre { white-space: pre-wrap; font-size: 0.8rem; }
 tr.choisi td { background: var(--surface-2); }
+.temps h3 { font-size: 1rem; margin: 12px 0 6px; }
+.temps ul { padding-left: 20px; display: grid; gap: 4px; margin: 0 0 6px; }
 section + section { margin-top: 16px; }
 .onglets { display: flex; gap: 6px; margin: 12px 0; border-bottom: 1px solid var(--border); }
 .onglets a { padding: 6px 12px; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }

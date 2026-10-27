@@ -192,7 +192,7 @@ func lire(dossier, nom string, maintenant time.Time) (Detail, error) {
 				d.Epoques = r.Reglages.EpoquesMax
 			}
 			if d.Statut == EnCours {
-				d.Statut, d.Phase, d.Etape = Termine, "termine", ""
+				d.Statut = Termine
 			}
 			if mt.After(derniere) {
 				derniere = mt
@@ -200,6 +200,9 @@ func lire(dossier, nom string, maintenant time.Time) (Detail, error) {
 		}
 	}
 
+	if d.Statut == Termine {
+		d.Phase, d.Etape = "termine", ""
+	}
 	m := derniere.UTC()
 	d.Maj = &m
 	if d.Statut == EnCours {

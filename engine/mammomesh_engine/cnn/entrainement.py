@@ -19,7 +19,7 @@ from ..materiel import torch_outils as to
 from .cmmd import Image
 from .metriques import mesurer, seuil_pour_sensibilite
 from .pretraitement import controler_place, nom_cache
-from .suivi import SansSuivi, Suivi
+from .suivi import SansSuivi, Suivi, maintenant
 
 ARCHITECTURE = "efficientnet_b0"
 MOYENNE, ECART = (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)   # normalisation ImageNet
@@ -161,7 +161,7 @@ def entrainer(images: list[Image], cache: Path, sortie: Path, *, resolution: tup
     n_neg = len(sel["entrainement"]) - n_pos
     critere = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(n_neg / max(n_pos, 1), device=dev))
     opt = torch.optim.AdamW(modele.parameters(), lr=lr, weight_decay=1e-4)
-    suivi.phase("entrainement", epoque=0, epoques=epoques, pas=0, pas_par_epoque=len(ch_entr),
+    suivi.phase("entrainement", epoque=0, epoques=epoques, pas=0, pas_par_epoque=len(ch_entr), patience=patience,
                 taille_entree=list(taille), lot=plan.lot, accumulation=plan.accumulation, precision=plan.precision,
                 appareil=plan.nom_appareil, plan=plan.resume().splitlines(),
                 donnees={s: {"images": len(v), "seins_malins": len({im.sein for im in v if im.etiquette})}
@@ -179,6 +179,7 @@ def entrainer(images: list[Image], cache: Path, sortie: Path, *, resolution: tup
         jw.writerow(["epoque", "perte", "auc_image_ajustement", "auc_sein_ajustement", "duree_s"])
         for ep in range(1, epoques + 1):
             t0 = time.time()
+            suivi.phase("entrainement", epoque=ep, pas=0, etape="apprentissage", debut_epoque=maintenant())
             modele.train()
             if figer_bn:
                 _figer_batchnorm(modele)

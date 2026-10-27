@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { avancement, duree, dureeMoyenneEpoque, estFinalise, phaseEntrainement, repartir, statutEntrainement } from '~/utils/entrainements'
+import { avancement, duree, dureeMoyenneEpoque, estFinalise, estimer, heureFin, phaseEntrainement, repartir, statutEntrainement, vitesseObservee, type ResumeEntrainement } from '~/utils/entrainements'
 
 const racine = resolve(__dirname, '../..')
 
@@ -22,6 +22,54 @@ describe('suivi des entraînements', () => {
     expect(r['en-cours'].map(e => e.nom)).toEqual(['a', 'c'])
     expect(r.finalises.map(e => e.nom)).toEqual(['b', 'd', 'e'])
     for (const s of Object.keys(statutEntrainement)) expect(typeof estFinalise(s)).toBe('boolean')
+  })
+
+  describe('temps de fin', () => {
+    const T = Date.parse('2026-10-27T13:00:00Z')
+    const base: ResumeEntrainement = { nom: 'x', statut: 'en_cours', phase: 'entrainement', epoque: 3, epoques: 15, meilleure_auc_sein: 0.8,
+      auc_sein_validation: null, avec_etat: true, maj: '2026-10-27T13:00:00Z', patience: 5 }
+    const etat = { donnees: { entrainement: { images: 2000 }, ajustement: { images: 400 } } }   // mesure = 7 % de l'apprentissage
+    const journal = [1, 2, 3].map(e => ({ epoque: e, perte: 0.6, auc_image: 0.7, auc_sein: e === 2 ? 0.8 : 0.7, duree_s: 1070 }))
+
+    it('époque en cours d\'après les pas faits depuis son début, puis fin au plus tard et arrêt anticipé', () => {
+      // Époque 4 : 100 pas sur 400 en 250 s → 0,4 pas/s ; apprentissage 1 000 s, mesure 70 s.
+      const d = { ...base, epoque: 4, etape: 'apprentissage', pas: 100, pas_par_epoque: 400, debut_epoque: '2026-10-27T12:55:50Z', duree_epoque_s: 1070, etat, journal }
+      const e = estimer(d, T)
+      expect(e.epoqueCourante).toBe(4)
+      expect(e.resteEpoque).toBeCloseTo(300 / 0.4 + 70)
+      expect(e.resteMax).toBeCloseTo(820 + 11 * 1070 + 140)
+      expect(e.epoqueArret).toBe(7)   // meilleure à l'époque 2, patience 5
+      expect(e.resteMin).toBeCloseTo(820 + 3 * 1070 + 140)
+    })
+
+    it('vitesse observée par la page prioritaire ; temps écoulé depuis la dernière nouvelle déduit', () => {
+      const d = { ...base, epoque: 4, etape: 'apprentissage', pas: 100, pas_par_epoque: 400, debut_epoque: '2026-10-27T12:55:50Z', duree_epoque_s: 1070, etat, journal }
+      expect(estimer(d, T, { pas: 0.5, images: null }).resteEpoque).toBeCloseTo(300 / 0.5 + 800 * 0.07)
+      expect(estimer(d, T + 60_000).resteEpoque).toBeCloseTo(820 - 60)
+    })
+
+    it('sans etat.json : durée des époques passées, à partir de la dernière ligne du journal', () => {
+      const d = { ...base, avec_etat: false, epoque: 3, duree_epoque_s: 1070, journal }
+      const e = estimer(d, T + 600_000)
+      expect(e.epoqueCourante).toBe(4)
+      expect(e.resteEpoque).toBeCloseTo(470)
+    })
+
+    it('prétraitement, phases sans estimation, entraînements finis', () => {
+      const pre = { ...base, phase: 'pretraitement', debut_phase: '2026-10-27T12:58:20Z', etat: { pretraites: 500, a_pretraiter: 3000 } }
+      expect(estimer(pre, T).restePretraitement).toBeCloseTo(500)   // 5 images/s
+      expect(estimer({ ...base, phase: 'calibrage' }, T).resteMax).toBeNull()
+      expect(estimer({ ...base, statut: 'termine' }, T).resteMax).toBeNull()
+    })
+
+    it('vitesse observée et heure de fin', () => {
+      const r = (t: number, pas: number, epoque = 4) => ({ t: T + t * 1000, phase: 'entrainement', epoque, pas, pretraites: 0 })
+      expect(vitesseObservee([r(0, 10), r(5, 12)]).pas).toBeNull()          // moins de 15 s
+      expect(vitesseObservee([r(0, 10), r(20, 20)]).pas).toBeCloseTo(0.5)
+      expect(vitesseObservee([r(0, 300, 3), r(20, 2), r(40, 12)]).pas).toBeCloseTo(0.5)   // autre époque écartée
+      expect(heureFin(T, 0)).toMatch(/\d{2}:\d{2}/)
+      expect(heureFin(T, 3 * 86400)).toMatch(/^\S+ \d{2}:\d{2}$/)
+    })
   })
 
   it('durées', () => {

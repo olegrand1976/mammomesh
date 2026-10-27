@@ -15,6 +15,10 @@ FICHIER = "etat.json"
 INTERVALLE_S = 10.0
 
 
+def maintenant() -> str:
+    return _maintenant()
+
+
 def _maintenant() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -39,6 +43,8 @@ class Suivi:
         self._derniere = time.monotonic()
 
     def phase(self, phase: str, **infos) -> None:
+        if phase != self.etat.get("phase"):
+            infos.setdefault("debut_phase", _maintenant())   # sert à l'estimation des temps de fin
         self.etat.update(phase=phase, **infos)
         self.ecrire()
 

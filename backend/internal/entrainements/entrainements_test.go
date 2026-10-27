@@ -65,7 +65,7 @@ func TestAvecEtatEtRapport(t *testing.T) {
 
 	ecrire(t, filepath.Join(rep, "rapport.json"), `{"validation":{"auc_sein":0.81},"reglages":{"epoques_max":15}}`, t0)
 	r, _ = Lire(d, "a", t0.Add(24*time.Hour))
-	if r.Statut != Termine || r.AUCSeinValidation == nil || *r.AUCSeinValidation != 0.81 || len(r.Rapport) == 0 {
+	if r.Statut != Termine || r.Phase != "termine" || r.Etape != "" || r.AUCSeinValidation == nil || *r.AUCSeinValidation != 0.81 || len(r.Rapport) == 0 {
 		t.Fatalf("terminé attendu : %+v", r.Resume)
 	}
 

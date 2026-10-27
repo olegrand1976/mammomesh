@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { fr } from '~/types'
 import {
-  avancement, duree, dureeMoyenneEpoque, phaseEntrainement, statutEntrainement,
-  type DetailEntrainement, type ResumeEntrainement,
+  avancement, duree, dureeMoyenneEpoque, phaseEntrainement, repartir, statutEntrainement,
+  type DetailEntrainement, type ResumeEntrainement, type VueEntrainements,
 } from '~/utils/entrainements'
 
 definePageMeta({ layout: 'suivi', middleware: 'auth' })
@@ -17,7 +17,16 @@ const liste = ref<ResumeEntrainement[]>([])
 const configure = ref(true)
 const detail = ref<DetailEntrainement | null>(null)
 const erreur = ref('')
-const choisi = computed(() => (typeof route.query.nom === 'string' ? route.query.nom : liste.value[0]?.nom ?? ''))
+const groupes = computed(() => repartir(liste.value))
+// Onglet : celui de l'adresse, sinon « En cours » s'il y a un entraînement en cours, sinon « Finalisés ».
+const vue = computed<VueEntrainements>(() => {
+  const q = route.query.vue
+  if (q === 'en-cours' || q === 'finalises') return q
+  return groupes.value['en-cours'].length || !groupes.value.finalises.length ? 'en-cours' : 'finalises'
+})
+const affiches = computed(() => groupes.value[vue.value])
+const choisi = computed(() => (typeof route.query.nom === 'string' ? route.query.nom : affiches.value[0]?.nom ?? ''))
+const onglets: { cle: VueEntrainements; libelle: string }[] = [{ cle: 'en-cours', libelle: 'En cours' }, { cle: 'finalises', libelle: 'Finalisés' }]
 let minuteur: ReturnType<typeof setInterval> | undefined
 
 async function charger() {
@@ -88,6 +97,31 @@ const option = computed(() => {
       avec Docker, le dossier <code>./modeles</code> est monté d'office).
     </p>
 
+    <nav class="onglets" aria-label="Entraînements">
+      <NuxtLink v-for="o in onglets" :key="o.cle" :to="{ query: { vue: o.cle } }" :class="{ actif: vue === o.cle }"
+        :aria-current="vue === o.cle ? 'page' : undefined">
+        {{ o.libelle }} <span class="compte">{{ groupes[o.cle].length }}</span>
+      </NuxtLink>
+    </nav>
+
+    <section class="card">
+      <div v-if="affiches.length" class="table-wrap"><table>
+        <thead><tr><th>Entraînement</th><th>État</th><th>Phase</th><th>Époque</th><th>Meilleure AUC (ajustement)</th><th class="hide-sm">AUC validation</th><th class="hide-sm">{{ vue === 'finalises' ? 'Fin' : 'Dernière nouvelle' }}</th></tr></thead>
+        <tbody>
+          <tr v-for="e in affiches" :key="e.nom" :class="{ choisi: e.nom === detail?.nom }">
+            <td><a href="#" @click.prevent="router.replace({ query: { vue, nom: e.nom } })">{{ e.nom }}</a></td>
+            <td><span class="badge" :class="statut(e.statut).classe">{{ statut(e.statut).libelle }}</span></td>
+            <td>{{ phase(e.phase) }}</td>
+            <td>{{ e.epoque }}<template v-if="e.epoques"> / {{ e.epoques }}</template></td>
+            <td>{{ fr(e.meilleure_auc_sein) }}</td>
+            <td class="hide-sm">{{ fr(e.auc_sein_validation) }}</td>
+            <td class="small hide-sm">{{ date(e.maj) }}</td>
+          </tr>
+        </tbody>
+      </table></div>
+      <p v-else-if="configure" class="muted">{{ vue === 'en-cours' ? 'Aucun entraînement en cours.' : 'Aucun entraînement finalisé pour l\'instant.' }}</p>
+    </section>
+
     <section v-if="detail" class="card">
       <div class="row titre">
         <h2>{{ detail.nom }}</h2>
@@ -138,25 +172,6 @@ const option = computed(() => {
         <p v-if="detail.etat.commande" class="small muted">Commande : <code>{{ detail.etat.commande }}</code></p>
       </details>
     </section>
-
-    <section class="card">
-      <h2>Tous les entraînements</h2>
-      <div v-if="liste.length" class="table-wrap"><table>
-        <thead><tr><th>Entraînement</th><th>État</th><th>Phase</th><th>Époque</th><th>Meilleure AUC (ajustement)</th><th class="hide-sm">AUC validation</th><th class="hide-sm">Dernière nouvelle</th></tr></thead>
-        <tbody>
-          <tr v-for="e in liste" :key="e.nom" :class="{ choisi: e.nom === choisi }">
-            <td><a href="#" @click.prevent="router.replace({ query: { nom: e.nom } })">{{ e.nom }}</a></td>
-            <td><span class="badge" :class="statut(e.statut).classe">{{ statut(e.statut).libelle }}</span></td>
-            <td>{{ phase(e.phase) }}</td>
-            <td>{{ e.epoque }}<template v-if="e.epoques"> / {{ e.epoques }}</template></td>
-            <td>{{ fr(e.meilleure_auc_sein) }}</td>
-            <td class="hide-sm">{{ fr(e.auc_sein_validation) }}</td>
-            <td class="small hide-sm">{{ date(e.maj) }}</td>
-          </tr>
-        </tbody>
-      </table></div>
-      <p v-else-if="configure" class="muted">Aucun entraînement pour l'instant.</p>
-    </section>
   </div>
 </template>
 
@@ -176,4 +191,8 @@ const option = computed(() => {
 .plan pre { white-space: pre-wrap; font-size: 0.8rem; }
 tr.choisi td { background: var(--surface-2); }
 section + section { margin-top: 16px; }
+.onglets { display: flex; gap: 6px; margin: 12px 0; border-bottom: 1px solid var(--border); }
+.onglets a { padding: 6px 12px; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.onglets a.actif { color: var(--text); border-bottom-color: var(--accent); text-decoration: none; }
+.compte { font-size: 0.75rem; background: var(--surface-2); border-radius: 999px; padding: 0 7px; margin-left: 4px; }
 </style>

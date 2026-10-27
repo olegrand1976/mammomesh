@@ -65,6 +65,18 @@ export const statutEntrainement: Record<string, { libelle: string; classe: strin
   sans_nouvelles: { libelle: 'Sans nouvelles', classe: 'en_pause' },
 }
 
+/** Finalisé : terminé, en échec ou interrompu. « Sans nouvelles » reste avec les en cours : il peut reprendre. */
+export function estFinalise(statut: string): boolean {
+  return statut === 'termine' || statut === 'echec' || statut === 'interrompu'
+}
+
+export type VueEntrainements = 'en-cours' | 'finalises'
+
+/** Répartit la liste (déjà triée, plus récent en tête) entre les deux onglets. */
+export function repartir<T extends { statut: string }>(liste: T[]): Record<VueEntrainements, T[]> {
+  return { 'en-cours': liste.filter(e => !estFinalise(e.statut)), 'finalises': liste.filter(e => estFinalise(e.statut)) }
+}
+
 export const phaseEntrainement: Record<string, string> = {
   preparation: 'Préparation',
   index: 'Index des images',

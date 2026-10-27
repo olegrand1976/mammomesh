@@ -208,6 +208,10 @@ test('documentation : fonctionnement, modèle mathématique, guides, lexique', a
     await page.getByRole('link', { name: new RegExp(lien) }).click()
     await expect(page.getByText(titre).first()).toBeVisible()
   }
+  await page.getByRole('link', { name: 'Entraînements', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Entraînements du CNN' })).toBeVisible()
+  await expect(page.getByRole('link', { name: /En cours/ })).toBeVisible()
+  await expect(page.getByRole('link', { name: /Finalisés/ })).toBeVisible()
   await page.goto('/suivi/fonctionnement') // ancienne adresse
   await expect(page).toHaveURL(/\/suivi\/documentation\/fonctionnement$/)
 })

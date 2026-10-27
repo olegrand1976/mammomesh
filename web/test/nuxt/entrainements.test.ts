@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { avancement, duree, dureeMoyenneEpoque, phaseEntrainement, statutEntrainement } from '~/utils/entrainements'
+import { avancement, duree, dureeMoyenneEpoque, estFinalise, phaseEntrainement, repartir, statutEntrainement } from '~/utils/entrainements'
 
 const racine = resolve(__dirname, '../..')
 
@@ -14,6 +14,14 @@ describe('suivi des entraînements', () => {
     expect(avancement({ statut: 'en_cours', phase: 'entrainement', epoque: 0, epoques: 10, etat: { pas: 0, pas_par_epoque: 100 } })).toBe(0)
     expect(avancement({ statut: 'en_cours', phase: 'pretraitement', epoque: 0, epoques: undefined, etat: { pretraites: 250, a_pretraiter: 1000 } })).toBeCloseTo(0.25)
     expect(avancement({ statut: 'termine', phase: 'termine', epoque: 9, epoques: 15, etat: null })).toBe(1)
+  })
+
+  it('onglets : en cours (y compris sans nouvelles) et finalisés', () => {
+    const l = [{ nom: 'a', statut: 'en_cours' }, { nom: 'b', statut: 'termine' }, { nom: 'c', statut: 'sans_nouvelles' }, { nom: 'd', statut: 'echec' }, { nom: 'e', statut: 'interrompu' }]
+    const r = repartir(l)
+    expect(r['en-cours'].map(e => e.nom)).toEqual(['a', 'c'])
+    expect(r.finalises.map(e => e.nom)).toEqual(['b', 'd', 'e'])
+    for (const s of Object.keys(statutEntrainement)) expect(typeof estFinalise(s)).toBe('boolean')
   })
 
   it('durées', () => {

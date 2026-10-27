@@ -44,6 +44,12 @@ test('premier accès : changement imposé du mot de passe par défaut', async ({
   for (const menu of ['Campagnes', 'Nouvelle campagne', 'Entraînements', 'Images', 'Jetons MCP', 'Documentation', 'Mon compte']) {
     await expect(page.getByRole('heading', { name: menu, level: 3 })).toBeVisible()
   }
+  // Barre latérale repliable : icônes seules, liens toujours nommés, choix gardé.
+  await page.getByRole('button', { name: 'Replier le menu' }).click()
+  await expect(page.locator('aside .entree .libelle').first()).toHaveCSS('position', 'absolute')
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Déplier le menu' })).toBeVisible()
+  await page.getByRole('button', { name: 'Déplier le menu' }).click()
   await page.getByRole('link', { name: 'Campagnes', exact: true }).first().click()
   await expect(page).toHaveURL(/\/suivi\/campagnes$/)
   await expect(page.getByRole('heading', { name: 'Campagnes', level: 1 })).toBeVisible()

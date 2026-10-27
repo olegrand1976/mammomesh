@@ -92,10 +92,10 @@ const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`
 </template>
 
 <style scoped>
-.accueil { display: grid; gap: 16px; }
+.accueil { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
 .accueil h1 { margin: 0; font-size: 1.4rem; }
 .intro { margin: 0; max-width: 900px; }
-.etat { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.etat { grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 12px; }
 .chiffre { display: grid; gap: 2px; color: var(--text); }
 .chiffre:hover { text-decoration: none; border-color: var(--accent); }
 .valeur { font-size: 1.6rem; font-weight: 600; }
@@ -103,7 +103,7 @@ td.cle { font-weight: 600; white-space: nowrap; vertical-align: top; }
 td { vertical-align: top; }
 .parcours { padding-left: 20px; display: grid; gap: 6px; margin: 0; }
 .titre-menus { margin: 8px 0 0; }
-.menus { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.menus { grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 12px; }
 .menu h3 { margin: 0 0 6px; font-size: 1.05rem; }
 .menu .resume { margin: 0 0 8px; }
 .menu ul { padding-left: 18px; margin: 0 0 10px; display: grid; gap: 4px; font-size: 0.9rem; }

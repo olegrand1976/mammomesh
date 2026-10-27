@@ -1,5 +1,6 @@
 // Page d'accueil de l'interface connectée (/suivi) : les menus, leur fonctionnement et leurs liens,
-// et la différence entre une campagne et un entraînement. Un test vérifie que chaque lien du menu y figure.
+// et la différence entre une campagne et un entraînement. Même ordre que la barre latérale (utils/navigation.ts),
+// plus « Mon compte » ; un test le vérifie.
 
 export interface Lien { titre: string; to: string }
 
@@ -15,6 +16,20 @@ export interface Menu {
 }
 
 export const menus: Menu[] = [
+  {
+    cle: 'entrainements',
+    titre: 'Entraînements',
+    to: '/suivi/entrainements',
+    resume: 'L\'apprentissage du CNN sur la banque d\'images, suivi en direct, avec ses temps de fin estimés.',
+    fonctionnement: [
+      'Onglets « En cours » et « Finalisés » ; pour chacun : phase, avancement, fin estimée, courbes d\'AUC et de perte, résultat final en validation.',
+      'Nouvel entraînement, pause (en fin d\'époque ou tout de suite), reprise, relance et suppression : l\'interface dépose une demande, le veilleur du serveur l\'exécute.',
+      'Un entraînement coupé (machine éteinte, plantage) reprend seul à sa dernière époque finie.',
+    ],
+    liens: [
+      { titre: 'Jeux d\'entraînement', to: '/suivi/documentation/jeux-entrainement' },
+    ],
+  },
   {
     cle: 'campagnes',
     titre: 'Campagnes',
@@ -48,20 +63,6 @@ export const menus: Menu[] = [
     ],
   },
   {
-    cle: 'entrainements',
-    titre: 'Entraînements',
-    to: '/suivi/entrainements',
-    resume: 'L\'apprentissage du CNN sur la banque d\'images, suivi en direct, avec ses temps de fin estimés.',
-    fonctionnement: [
-      'Onglets « En cours » et « Finalisés » ; pour chacun : phase, avancement, fin estimée, courbes d\'AUC et de perte, résultat final en validation.',
-      'Nouvel entraînement, pause (en fin d\'époque ou tout de suite), reprise, relance et suppression : l\'interface dépose une demande, le veilleur du serveur l\'exécute.',
-      'Un entraînement coupé (machine éteinte, plantage) reprend seul à sa dernière époque finie.',
-    ],
-    liens: [
-      { titre: 'Jeux d\'entraînement', to: '/suivi/documentation/jeux-entrainement' },
-    ],
-  },
-  {
     cle: 'images',
     titre: 'Images',
     to: '/suivi/images',
@@ -74,18 +75,6 @@ export const menus: Menu[] = [
     liens: [{ titre: 'Guide : Images', to: '/suivi/documentation/images' }],
   },
   {
-    cle: 'jetons',
-    titre: 'Jetons MCP',
-    to: '/suivi/jetons',
-    resume: 'Brancher Claude Code sur le serveur, pour interroger les résultats ou proposer des réglages.',
-    fonctionnement: [
-      'Un jeton « lecture » donne accès aux campagnes, générations, individus et rapports.',
-      'Un jeton « proposition » permet en plus de préparer des brouillons ; lancer ou régler une campagne demande toujours une confirmation humaine.',
-      'Jetons valables 90 jours, affichés une seule fois, révocables à tout moment.',
-    ],
-    liens: [],
-  },
-  {
     cle: 'documentation',
     titre: 'Documentation',
     to: '/suivi/documentation',
@@ -96,6 +85,18 @@ export const menus: Menu[] = [
       'Le même contenu se trouve dans le dossier docs/ du dépôt.',
     ],
     liens: [{ titre: 'Sommaire', to: '/suivi/documentation' }],
+  },
+  {
+    cle: 'jetons',
+    titre: 'Jetons MCP',
+    to: '/suivi/jetons',
+    resume: 'Brancher Claude Code sur le serveur, pour interroger les résultats ou proposer des réglages.',
+    fonctionnement: [
+      'Un jeton « lecture » donne accès aux campagnes, générations, individus et rapports.',
+      'Un jeton « proposition » permet en plus de préparer des brouillons ; lancer ou régler une campagne demande toujours une confirmation humaine.',
+      'Jetons valables 90 jours, affichés une seule fois, révocables à tout moment.',
+    ],
+    liens: [],
   },
   {
     cle: 'compte',

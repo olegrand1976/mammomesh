@@ -55,7 +55,7 @@ echo 'un-mot-de-passe-long' | docker compose run --rm -T migrate user create --u
 
 Rôles : `admin`, `responsable_scientifique`, `data_manager`, `radiologue`, `lecteur`.
 
-Profils optionnels : `COMPOSE_PROFILES=obs` (Prometheus + Grafana sous `/obs/`), `backup` (sauvegarde restic quotidienne vers `BACKUP_DIR`).
+Profils optionnels : `COMPOSE_PROFILES=obs` (Prometheus + Grafana sous `/obs/`), `backup` (sauvegarde restic quotidienne de PostgreSQL vers `BACKUP_DIR` ; restauration : [deploy/backup](deploy/backup/README.md)).
 
 ### Hôte
 

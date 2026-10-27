@@ -1,6 +1,6 @@
 # Secrets et données locales
 secrets/
-backup/
+/backup/
 .env
 
 # Go

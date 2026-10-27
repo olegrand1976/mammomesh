@@ -42,6 +42,12 @@ type env struct {
 // newEnv exige DATABASE_URL_TEST ; rdb peut être nil (compteurs en mémoire).
 func newEnv(t *testing.T, rdb *auth.Redis) *env {
 	t.Helper()
+	return newEnvMoteur(t, rdb, nil)
+}
+
+// newEnvMoteur : comme newEnv, avec un service d'inférence du CNN (nil : tests d'images simulés).
+func newEnvMoteur(t *testing.T, rdb *auth.Redis, moteur *imagerie.Moteur) *env {
+	t.Helper()
 	dsn := os.Getenv("DATABASE_URL_TEST")
 	if dsn == "" {
 		t.Skip("DATABASE_URL_TEST non défini")
@@ -66,7 +72,7 @@ func newEnv(t *testing.T, rdb *auth.Redis) *env {
 	go hub.Run(hubCtx)
 	mux := api.New(cfg, st, hub, log, api.Limits{Redis: rdb, LoginPerUser: auth.NewLimiter(rdb, 10, time.Minute),
 		LoginPerIP: auth.NewLimiter(rdb, 50, time.Minute), MCPPerToken: auth.NewLimiter(rdb, 1000, time.Minute)}).
-		WithImages(imagerie.DirStore{Dir: t.TempDir()}).Router()
+		WithImages(imagerie.DirStore{Dir: t.TempDir()}).WithMoteur(moteur).Router()
 	srv := httptest.NewServer(mux)
 	// Ordre de fermeture : serveur, relais (il rend sa connexion d'écoute), puis base.
 	t.Cleanup(func() { srv.Close(); hubStop(); pool.Close(); cancel() })

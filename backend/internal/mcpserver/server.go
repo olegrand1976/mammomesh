@@ -148,10 +148,10 @@ func NewServer(st *store.Store, p *store.MCPPrincipal) *mcp.Server {
 	}
 
 	tool(s, st, p, &mcp.Tool{Name: "campagnes_lister", Title: "Lister les campagnes", Annotations: read,
-		Description: "Campagnes, des plus récentes aux plus anciennes : état, génération, budget, meilleure sensibilité sur E-val."},
+		Description: "Campagnes actives (les désactivées sont exclues), des plus récentes aux plus anciennes : état, génération, budget, meilleure sensibilité sur E-val."},
 		func(ctx context.Context, in ListIn) (ListOut, error) {
 			limit := clamp(in.Limite, 1, 50, 20)
-			list, err := st.ListCampaigns(ctx, limit)
+			list, err := st.ListCampaigns(ctx, limit, false)
 			if err != nil {
 				return ListOut{}, err
 			}

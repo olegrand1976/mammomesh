@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Services utilisateur de MammoMesh (systemd --user), sans sudo sauf indication :
 #   mammomesh-pile          : pile Docker au démarrage de la machine ;
-#   mammomesh-entrainement  : reprise automatique des entraînements du CNN dès que le GPU est libre.
+#   mammomesh-entrainement  : reprise automatique des entraînements du CNN dès que le GPU est libre ;
+#   mammomesh-inference     : tests d'images par le CNN entraîné (appelé par l'API, sur docker0, port 8765).
 #   ./scripts/installer-services.sh             installe, active et démarre
 #   ./scripts/installer-services.sh --sans-demarrer   active pour le prochain démarrage seulement
 #   ./scripts/installer-services.sh --retirer   arrête et retire
@@ -9,7 +10,7 @@
 set -euo pipefail
 DEPOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEST="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
-SERVICES=(mammomesh-pile mammomesh-entrainement)
+SERVICES=(mammomesh-pile mammomesh-entrainement mammomesh-inference)
 alerte() { echo "  ! $*"; }
 
 DEMARRER=1
@@ -39,7 +40,7 @@ if [[ "$(loginctl show-user "$USER" -p Linger --value 2>/dev/null)" != yes ]]; t
 fi
 installer=("${SERVICES[@]}")
 if [[ ! -x "$DEPOT/engine/.venv/bin/python" ]]; then
-  alerte "engine/.venv absent : mammomesh-entrainement n'est pas installé (voir README, « Premier CNN »)"
+  alerte "engine/.venv absent : mammomesh-entrainement et mammomesh-inference ne sont pas installés (voir README, « Premier CNN »)"
   installer=(mammomesh-pile)
 fi
 
@@ -64,4 +65,4 @@ echo "== État"
 sleep 3
 systemctl --user --no-pager --lines=0 status "${installer[@]/%/.service}" || true
 echo
-echo "Journaux : journalctl --user -u mammomesh-entrainement -f    (et -u mammomesh-pile)"
+echo "Journaux : journalctl --user -u mammomesh-entrainement -f    (et -u mammomesh-inference, -u mammomesh-pile)"

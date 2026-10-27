@@ -6,6 +6,7 @@
 //	mammomesh user create    création d'un compte (mot de passe lu sur l'entrée standard)
 //	mammomesh mcp-stdio      serveur MCP en stdio pour le développement (jeton dans MAMMOMESH_MCP_TOKEN)
 //	mammomesh healthcheck    test de santé du conteneur
+//	mammomesh verifier-inference   le service d'inférence du CNN (INFERENCE_URL) répond-il ?
 package main
 
 import (
@@ -38,7 +39,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage : mammomesh api | orchestrator | migrate | user create | mcp-stdio | healthcheck")
+		fmt.Fprintln(os.Stderr, "usage : mammomesh api | orchestrator | migrate | user create | mcp-stdio | healthcheck | verifier-inference")
 		os.Exit(2)
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -58,6 +59,8 @@ func main() {
 	switch os.Args[1] {
 	case "healthcheck":
 		healthcheck(cfg)
+	case "verifier-inference":
+		err = verifierInference(ctx, cfg)
 	case "migrate":
 		err = runMigrate(ctx, cfg, log)
 	case "api":
@@ -146,7 +149,7 @@ func runAPI(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 		LoginPerUser: auth.NewLimiter(rdb, 10, 15*time.Minute), // 10 tentatives par identifiant et par 15 minutes
 		LoginPerIP:   auth.NewLimiter(rdb, 50, 15*time.Minute), // 50 par adresse : un poste partagé reste utilisable
 		MCPPerToken:  auth.NewLimiter(rdb, 120, time.Minute),   // 120 appels MCP par minute et par jeton
-	}).WithImages(imageStore(cfg, log))
+	}).WithImages(imageStore(cfg, log)).WithMoteur(moteur(cfg, log))
 	httpSrv := &http.Server{Addr: cfg.ListenAddr, Handler: srv.Router(), ReadHeaderTimeout: 10 * time.Second}
 	metricsSrv := &http.Server{Addr: cfg.MetricsAddr, Handler: api.MetricsHandler(hub, rdb), ReadHeaderTimeout: 5 * time.Second}
 
@@ -222,6 +225,16 @@ func runMCPStdio(ctx context.Context, cfg config.Config) error {
 	return mcpserver.NewServer(st, p).Run(ctx, &mcp.StdioTransport{})
 }
 
+// moteur : service d'inférence du CNN si INFERENCE_URL est défini ; sinon les tests d'images restent simulés.
+func moteur(cfg config.Config, log *slog.Logger) *imagerie.Moteur {
+	if cfg.InferenceURL == "" {
+		log.Info("tests d'images : simulation (INFERENCE_URL vide)")
+		return nil
+	}
+	log.Info("tests d'images : CNN entraîné", "url", cfg.InferenceURL)
+	return imagerie.NewMoteur(cfg.InferenceURL, cfg.InferenceJeton)
+}
+
 // imageStore : filer SeaweedFS si IMAGES_URL est défini, sinon un dossier local.
 func imageStore(cfg config.Config, log *slog.Logger) imagerie.Store {
 	if cfg.ImagesURL != "" {
@@ -257,6 +270,29 @@ type redisLog struct{ log *slog.Logger }
 
 func (l redisLog) Printf(ctx context.Context, format string, v ...any) {
 	l.log.Debug(fmt.Sprintf(format, v...), "source", "go-redis")
+}
+
+// verifierInference interroge le service d'inférence tel que l'API le voit (depuis son conteneur).
+func verifierInference(ctx context.Context, cfg config.Config) error {
+	if cfg.InferenceURL == "" {
+		return errors.New("INFERENCE_URL vide : les tests d'images sont simulés")
+	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	e, err := imagerie.NewMoteur(cfg.InferenceURL, cfg.InferenceJeton).Etat(ctx)
+	if err != nil {
+		return fmt.Errorf("%s injoignable : %w", cfg.InferenceURL, err)
+	}
+	ep := "?"
+	if e.Epoque != nil {
+		ep = fmt.Sprint(*e.Epoque)
+	}
+	etat := "fini"
+	if !e.Fini {
+		etat = "entraînement en cours"
+	}
+	fmt.Printf("Inférence joignable : %s, modèle %s (époque %s, %s) sur %s\n", cfg.InferenceURL, e.Modele, ep, etat, e.Appareil)
+	return nil
 }
 
 func healthcheck(cfg config.Config) {

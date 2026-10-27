@@ -22,6 +22,26 @@ func (s *Server) WithImages(st imagerie.Store) *Server {
 	return s
 }
 
+// WithMoteur branche le service d'inférence du CNN ; sans lui, les tests d'images sont simulés.
+func (s *Server) WithMoteur(m *imagerie.Moteur) *Server {
+	s.moteur = m
+	return s
+}
+
+// etatInference dit à l'interface si les tests sont réels (CNN) ou simulés, et quel modèle répond.
+func (s *Server) etatInference(w http.ResponseWriter, r *http.Request) {
+	if s.moteur == nil {
+		writeJSON(w, http.StatusOK, map[string]any{"mode": "simulation"})
+		return
+	}
+	e, err := s.moteur.Etat(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"mode": "cnn", "joignable": false, "erreur": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"mode": "cnn", "joignable": true, "etat": e})
+}
+
 func (s *Server) imagesReady(w http.ResponseWriter) bool {
 	if s.images == nil {
 		writeError(w, http.StatusServiceUnavailable, "stockage des images non configuré (IMAGES_URL ou IMAGES_DIR)")
@@ -214,13 +234,41 @@ func (s *Server) testImage(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
-	res := imagerie.Simuler(im.Meta, imagerie.Individu{ID: ind.ID, Sensibilite: ind.Sensitivity, CoutMs: ind.CostMs})
+	var res imagerie.Resultat
+	if s.moteur == nil {
+		res = imagerie.Simuler(im.Meta, imagerie.Individu{ID: ind.ID, Sensibilite: ind.Sensitivity, CoutMs: ind.CostMs})
+	} else {
+		if !s.imagesReady(w) {
+			return
+		}
+		rc, err := s.images.Get(r.Context(), im.StorageKey)
+		if errors.Is(err, imagerie.ErrAbsent) {
+			writeError(w, http.StatusNotFound, "pixels absents du stockage")
+			return
+		}
+		if err != nil {
+			s.log.Error("lecture d'une image", "err", err)
+			writeError(w, http.StatusBadGateway, "stockage des images injoignable")
+			return
+		}
+		gz, err := io.ReadAll(rc)
+		rc.Close()
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "lecture des pixels interrompue")
+			return
+		}
+		if res, err = s.moteur.Predire(r.Context(), im.Meta, gz); err != nil {
+			s.log.Warn("inférence du CNN", "err", err)
+			writeError(w, http.StatusBadGateway, "moteur d'inférence injoignable ou en erreur (service mammomesh-inference) : "+err.Error())
+			return
+		}
+	}
 	tid, err := s.st.InsertImageTest(r.Context(), im.ID, ind.ID, res, u.ID)
 	if err != nil {
 		s.fail(w, err)
 		return
 	}
-	s.st.Audit(r.Context(), u.ID, "interface", "image.test", map[string]any{"image": im.ID, "individu": ind.ID, "simulation": true})
+	s.st.Audit(r.Context(), u.ID, "interface", "image.test", map[string]any{"image": im.ID, "individu": ind.ID, "simulation": res.Simulation, "modele": res.Modele})
 	writeJSON(w, http.StatusCreated, map[string]any{"test": store.ImageTest{ID: tid, ImageID: im.ID, IndividualID: ind.ID,
 		Individu: ind.Name, CampaignID: ind.CampaignID, Generation: ind.Generation, Resultat: res}})
 }

@@ -39,7 +39,7 @@ export const menus: Menu[] = [
     fonctionnement: [
       'La liste montre chaque campagne : son état, le nombre de générations déjà faites, la meilleure part de cancers trouvés jusqu\'ici (sensibilité, mesurée sur des images de contrôle, E-val) et le temps de calcul déjà utilisé.',
       'L\'écran d\'une campagne se met à jour tout seul : progrès à chaque génération, graphique des meilleurs compromis (cancers trouvés contre rapidité), détail de chaque version testée et historique des événements.',
-      'Seuls l\'administrateur et le responsable scientifique peuvent mettre en pause, reprendre, arrêter ou prolonger une campagne. Une campagne terminée peut servir de point de départ à la suivante.',
+      'Seuls l\'administrateur et le responsable scientifique peuvent mettre en pause, reprendre, arrêter ou prolonger une campagne, et, une fois finie, la désactiver (elle n\'est plus prise en compte, mais reste consultable) ou la supprimer définitivement. Une campagne terminée peut servir de point de départ à la suivante.',
     ],
     liens: [
       { titre: 'Guide de l\'écran de suivi', to: '/suivi/documentation/suivi-campagne' },
@@ -71,7 +71,7 @@ export const menus: Menu[] = [
     fonctionnement: [
       'Import de fichiers DICOM, le format des appareils de radiologie. Le nom et l\'identifiant de la patiente sont supprimés à l\'import : seuls l\'image et quelques réglages techniques sont gardés.',
       'Affichage en pleine résolution : zoom, réglage du contraste, inversion noir et blanc, zones signalées.',
-      'Test d\'une version choisie dans une campagne : un score de suspicion pour l\'image et les zones qui l\'ont alertée. Tant que le CNN n\'est pas branché, ce résultat est simulé, et l\'écran l\'indique.',
+      'Test d\'une version choisie dans une campagne : quand le service d\'inférence tourne, le score du CNN entraîné et les zones où il a regardé ; sinon un résultat simulé. L\'écran indique toujours lequel des deux il affiche.',
     ],
     liens: [{ titre: 'Guide : Images', to: '/suivi/documentation/images' }],
   },

@@ -135,7 +135,7 @@ $$
 \hat{T} = (G - g) \times \frac{1}{10} \sum_{k=g-9}^{g} d_k
 $$
 
-## Images : stockage, fenêtrage et test simulé
+## Images : stockage, fenêtrage et test
 
 À l'import, chaque valeur brute v est rééchelonnée par la pente a et l'ordonnée b du DICOM, puis ramenée sur 16 bits non signés :
 
@@ -149,7 +149,7 @@ $$
 y = \operatorname{clamp}\Bigl(255\,\frac{u - (c - w/2)}{w},\ 0,\ 255\Bigr), \qquad y_{\text{inversé}} = 255 - y
 $$
 
-Test simulé d'un individu (sensibilité s, coût κ) sur une image d'empreinte H : tirage déterministe initialisé par FNV-1a(H ‖ id), donc même image et même individu donnent le même résultat. n zones, placées dans la zone de tissu :
+Sans service d'inférence, test simulé d'un individu (sensibilité s, coût κ) sur une image d'empreinte H : tirage déterministe initialisé par FNV-1a(H ‖ id), donc même image et même individu donnent le même résultat. n zones, placées dans la zone de tissu :
 
 $$
 \lambda = \max\Bigl(0,\ \frac{s - 0{,}80}{0{,}15}\Bigr), \qquad n = \mathcal{U}\{0,1,2\} + \mathrm{Bernoulli}(\min(1,\ 0{,}6\,\lambda))
@@ -160,6 +160,42 @@ $$
 $$
 
 Ces nombres n'ont aucune valeur : ils éprouvent le parcours (import, choix d'un individu, affichage) en attendant le vrai moteur.
+
+Avec le service d'inférence, le CNN reçoit l'image préparée comme à l'entraînement : niveaux ramenés sur 8 bits entre les centiles 0,5 % et 99,5 % (une image déjà sur 8 bits, comme celles de CMMD, est gardée telle quelle), sein placé à gauche, recadrage sur le tissu, réduction sur la toile H × W (1 024 × 832) en gardant les proportions. Score de l'image à partir de la sortie brute z du réseau, et décision au seuil θ choisi à l'entraînement :
+
+$$
+p = \sigma(z) = \frac{1}{1 + e^{-z}}, \qquad \text{signalée} \iff p \ge \theta
+$$
+
+Zones d'attention (Grad-CAM) : chacune des K cartes A_k de la dernière couche de convolution (32 × 26 cases pour une toile de 1 024 × 832) est pondérée par le gradient moyen du score brut :
+
+$$
+\alpha_k = \frac{1}{|\Omega|} \sum_{(i,j) \in \Omega} \frac{\partial z}{\partial A_k^{ij}}, \qquad L = \operatorname{ReLU}\Bigl(\sum_{k=1}^{K} \alpha_k A_k\Bigr)
+$$
+
+Les cases hors du sein sont ignorées ; L est divisée par son maximum, les cases à 0,5 ou plus sont regroupées par voisinage (4-connexité), et les trois groupes au plus fort maximum deviennent des zones, ramenées aux pixels de l'image d'origine (réduction, recadrage et retournement défaits). Leur intensité est ce maximum, entre 0,5 et 1.
+
+## CNN : perte, AUC et seuil
+
+Perte d'entraînement (entropie croisée binaire pondérée) sur N images d'étiquette y (1 : malin, 0 : bénin), les malins repondérés par w pour compenser leur proportion :
+
+$$
+\mathcal{L} = -\frac{1}{N} \sum_{n=1}^{N} \Bigl[ w\, y_n \log \sigma(z_n) + (1 - y_n) \log\bigl(1 - \sigma(z_n)\bigr) \Bigr], \qquad w = \frac{n_{\text{bénins}}}{n_{\text{malins}}}
+$$
+
+La perte affichée pour une époque est la moyenne de ℒ sur toutes les images d'entraînement de cette époque. Elle ne porte que sur ces images : seule l'AUC sur E-ajust, calculée sur des patientes que le CNN n'apprend pas, dit s'il généralise. Sur le graphique, son axe est zoomé sur les valeurs atteintes.
+
+Score d'un sein : moyenne des scores de ses vues. AUC : probabilité qu'un sein malin tiré au hasard ait un score plus haut qu'un sein bénin tiré au hasard (égalités comptées pour moitié), sur les ensembles M des seins malins et B des seins bénins :
+
+$$
+\mathrm{AUC} = \frac{1}{|M|\,|B|} \sum_{m \in M} \sum_{b \in B} \Bigl( \mathbb{1}[p_m > p_b] + \tfrac{1}{2}\,\mathbb{1}[p_m = p_b] \Bigr)
+$$
+
+La version gardée est celle de la meilleure AUC par sein sur E-ajust ; l'entraînement s'arrête après P époques sans nouveau record (patience). Seuil de décision, fixé ensuite sur E-ajust pour la sensibilité cible s* (0,85 par défaut) : le plus haut seuil qui l'atteint, donc la meilleure spécificité à cette sensibilité.
+
+$$
+\theta = \max\bigl\{\, t \;:\; \mathrm{Se}_{\text{E-ajust}}(t) \ge s^{*} \,\bigr\}
+$$
 
 ## Modèle prévu pour la vraie boucle
 

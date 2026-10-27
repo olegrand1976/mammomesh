@@ -28,13 +28,17 @@ type Zone struct {
 	Type  string  `json:"type"`
 }
 
-// Resultat d'un test. Simulation vaut toujours vrai tant que le CNN et CephaloMesh ne sont pas branchés.
+// Resultat d'un test : simulé (aucun moteur configuré) ou score du CNN entraîné (INFERENCE_URL).
 type Resultat struct {
-	Simulation    bool    `json:"simulation"`
-	Score         float64 `json:"score"` // score de suspicion de l'image, de 0 à 1 (simulé)
-	DureeMs       float64 `json:"duree_ms"`
-	Zones         []Zone  `json:"zones"`
-	Avertissement string  `json:"avertissement"`
+	Simulation    bool     `json:"simulation"`
+	Score         float64  `json:"score"` // simulé, ou probabilité de malignité donnée par le CNN
+	DureeMs       float64  `json:"duree_ms"`
+	Zones         []Zone   `json:"zones"`
+	Avertissement string   `json:"avertissement"`
+	Modele        string   `json:"modele,omitempty"`  // CNN : dossier du modèle utilisé
+	Epoque        *int     `json:"epoque,omitempty"`  // CNN : époque retenue
+	Seuil         *float64 `json:"seuil,omitempty"`   // CNN : seuil choisi à l'entraînement (sensibilité cible)
+	Signale       *bool    `json:"signale,omitempty"` // CNN : score au-dessus du seuil
 }
 
 // Individu : ce que le test utilise d'un individu.

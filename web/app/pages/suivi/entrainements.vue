@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { fr } from '~/types'
+import { syntheseEntrainement } from '~/utils/progression'
 import {
   avancement, duree, estimer, heureFin, libelleDemande, phaseEntrainement, relance, repartir, statutEntrainement, vitesseObservee,
   aideReglages, pausePossible, type DemandeNouveau, type DetailEntrainement, type ReglagesEntrainement, type Releve, type ResumeEntrainement, type VueEntrainements,
@@ -164,32 +165,11 @@ const option = computed(() => {
       </button>
     </div>
     <p class="muted small intro">
-      Suivi des entraînements lancés avec <code>python -m mammomesh_engine.cnn</code>, rafraîchi toutes les 5 secondes.
-      Les mesures se font sur l'ensemble d'ajustement (<Sigle t="E-ajust" />) ; la validation (<Sigle t="E-val" />) n'est mesurée qu'à la fin, sur des patientes jamais vues.
+      Ici, le <Sigle t="CNN" /> apprend, sur des mammographies dont le diagnostic est connu par biopsie, à distinguer les anomalies malignes des bénignes.
+      Chaque entraînement est suivi en direct (mise à jour toutes les 5 secondes) : ses progrès après chaque époque, puis sa note finale sur des patientes jamais vues.
+      Le guide ci-dessous explique comment lire les chiffres, avec des exemples.
     </p>
-    <details class="card cnn">
-      <summary>Qu'est-ce qu'un CNN, et que montre cette page ?</summary>
-      <p>
-        Un <strong><Sigle t="CNN" /></strong> (<em>convolutional neural network</em>, réseau de neurones convolutif) est un programme qui apprend
-        à reconnaître des motifs dans des images. Ses premières couches repèrent des bords et des textures, les suivantes des
-        formes de plus en plus complexes. On ne lui écrit pas de règles : on lui montre des milliers d'exemples dont on connaît
-        la réponse, et il ajuste ses millions de paramètres pour se tromper de moins en moins.
-      </p>
-      <p>
-        Dans MammoMesh, le <Sigle t="CNN" /> est le <strong>regard</strong> : il lit la mammographie et donne un score ; CephaloMesh, ensuite,
-        <strong>raisonne</strong> sur ce qu'il a vu (concordance des vues, symétrie, évolution depuis l'examen précédent).
-        Le <Sigle t="CNN" /> entraîné ici (EfficientNet-B0, partant de poids appris sur des photos ordinaires) apprend, sur la base <Sigle t="CMMD" />,
-        à dire si un sein qui porte une anomalie est plutôt <strong>malin ou bénin</strong> (prouvé par biopsie).
-      </p>
-      <ul>
-        <li><strong>Époque</strong> : un passage complet sur toutes les images d'entraînement.</li>
-        <li><strong>Perte</strong> : l'erreur moyenne pendant l'apprentissage ; elle doit baisser.</li>
-        <li><strong><Sigle t="AUC" /></strong> : de 0,5 (hasard) à 1 (parfait), la probabilité qu'un sein malin reçoive un score plus haut qu'un sein bénin.</li>
-        <li><strong>Ajustement (<Sigle t="E-ajust" />)</strong> : patientes mises de côté pour suivre les progrès et choisir le seuil ;
-          <strong>validation (<Sigle t="E-val" />)</strong> : patientes jamais vues, mesurées une seule fois à la fin.</li>
-      </ul>
-      <p class="small muted">Outil de recherche : aucun résultat ne sert à un diagnostic.</p>
-    </details>
+    <GuideEntrainement />
     <p v-if="erreur" class="alert">{{ erreur }}</p>
     <p v-if="info" class="attente"><TexteGlossaire :texte="info" /></p>
     <p v-if="!configure" class="alert">
@@ -335,9 +315,14 @@ const option = computed(() => {
       </p>
 
       <EChart v-if="detail.journal.length" class="graphique" :option="option" />
+      <LectureProgression v-if="detail.journal.length" :journal="detail.journal" :patience="detail.patience" />
       <p v-else class="muted small">Pas encore d'époque terminée.</p>
 
       <div v-if="detail.rapport?.validation" class="resultats">
+        <div class="synthese">
+          <h3>Synthèse de l'entraînement</h3>
+          <ul><li v-for="ph in syntheseEntrainement(detail.journal, detail.rapport, detail.patience || 5)" :key="ph"><TexteGlossaire :texte="ph" /></li></ul>
+        </div>
         <h3>Résultat (validation, patientes jamais vues)</h3>
         <div class="grid chiffres">
           <div><div class="small muted"><Sigle t="AUC" /> par sein</div><div class="valeur">{{ fr(detail.rapport.validation.auc_sein) }}</div></div>
@@ -387,9 +372,6 @@ tr.choisi td { background: var(--surface-2); }
 .menu-pause > summary::-webkit-details-marker { display: none; }
 .choix { position: absolute; right: 0; top: calc(100% + 4px); z-index: 5; display: grid; gap: 4px; min-width: 240px; }
 .choix small { margin: -2px 0 6px; }
-.cnn summary { cursor: pointer; font-weight: 600; }
-.cnn p, .cnn ul { margin: 10px 0 0; }
-.cnn ul { padding-left: 20px; display: grid; gap: 4px; }
 .attente { background: var(--accent-soft); color: var(--accent); padding: 8px 12px; border-radius: 8px; }
 .temps h3 { font-size: 1rem; margin: 12px 0 6px; }
 .temps ul { padding-left: 20px; display: grid; gap: 4px; margin: 0 0 6px; }
@@ -398,4 +380,7 @@ section + section { margin-top: 16px; }
 .onglets a { padding: 6px 12px; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .onglets a.actif { color: var(--text); border-bottom-color: var(--accent); text-decoration: none; }
 .compte { font-size: 0.75rem; background: var(--surface-2); border-radius: 999px; padding: 0 7px; margin-left: 4px; }
+.synthese { border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+.synthese h3 { margin: 0 0 6px; }
+.synthese ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
 </style>

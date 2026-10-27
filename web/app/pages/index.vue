@@ -4,7 +4,7 @@
 useHead({ title: 'MammoMesh · présentation' })
 
 const parties = [
-  { t: 'Le CNN : l\'œil', d: 'Un programme d\'intelligence artificielle spécialisé dans les images. Il a appris, sur des milliers de mammographies dont le diagnostic est connu, à repérer ce qui ressemble à une lésion. Très fin, très rapide, mais il juge chaque image séparément.' },
+  { t: 'Le CNN : l\'œil', d: 'Un modèle d\'apprentissage automatique (une branche de l\'intelligence artificielle) conçu pour les images. Il a appris, sur des milliers de mammographies dont le diagnostic est connu, à repérer ce qui ressemble à une lésion. Très fin, très rapide, mais il juge chaque image séparément.' },
   { t: 'CephaloMesh : le raisonnement', d: 'Il reprend ce que le CNN a repéré et le recoupe comme un radiologue : la lésion se voit-elle sur les deux vues du même sein ? Les deux seins se ressemblent-ils ? Était-elle déjà là au dernier examen ? Chaque étape est traçable.' },
   { t: 'Ensemble', d: 'Le CNN apporte la vue, CephaloMesh le jugement. Moins de fausses alertes (un défaut sur une seule image ne suffit plus), des indices faibles qui se confirment entre eux, et un examen détaillé seulement là où c\'est utile.' },
 ]

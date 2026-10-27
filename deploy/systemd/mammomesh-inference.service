@@ -1,0 +1,23 @@
+# Service utilisateur : inférence du CNN entraîné pour les tests d'images de l'interface
+# (python -m mammomesh_engine.inference). Installé par scripts/installer-services.sh.
+# Écoute sur l'adresse de docker0 (joignable par l'API en conteneur via host.docker.internal, pas depuis le réseau).
+# Sur CPU par défaut, pour laisser le GPU aux entraînements ; INFERENCE_APPAREIL=cuda pour l'utiliser.
+# Modèle : le plus récent entraînement fini de ./modeles (MODELE=nom-du-dossier pour en imposer un) ;
+# il est rechargé seul quand son modele.pt change.
+[Unit]
+Description=MammoMesh : inférence du CNN entraîné (tests d'images)
+After=default.target
+
+[Service]
+Type=simple
+WorkingDirectory=@DEPOT@/engine
+Environment=PYTHONUNBUFFERED=1
+Environment=MODELES_DIR=@DEPOT@/modeles
+Environment=INFERENCE_HOTE=docker
+ExecStart=@DEPOT@/engine/.venv/bin/python -m mammomesh_engine.inference
+Restart=always
+RestartSec=30
+Nice=5
+
+[Install]
+WantedBy=default.target

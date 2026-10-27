@@ -74,6 +74,12 @@ services:
       IMAGES_URL: http://s3:8888/mammomesh-images
       # Suivi des entraînements du CNN (menu « Entraînements ») : dossiers de ./modeles, en lecture seule.
       MODELES_DIR: /modeles
+      # Tests d'images par le CNN entraîné : service mammomesh-inference sur l'hôte (engine, voir README).
+      # Vide : tests simulés.
+      INFERENCE_URL: ${INFERENCE_URL-http://host.docker.internal:8765}
+      INFERENCE_JETON: ${INFERENCE_JETON:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ${MODELES_DIR_HOTE:-./modeles}:/modeles:ro
       # Seule écriture : les demandes (relancer, supprimer) que le veilleur de l'hôte exécute.

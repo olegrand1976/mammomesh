@@ -17,11 +17,12 @@ La conception complète (protocole, garde-fous, pile, déploiement) est dans la 
 | Interface Nuxt : page de présentation scientifique, login, barre latérale repliable (tiroir sur téléphone), accueil qui explique chaque menu, campagnes, écran de suivi en direct, entraînements, images, jetons MCP | fait |
 | Infobulles : chaque sigle de chaque écran (CNN, AUC, E-val, DICOM, GPU…) s'explique au survol ou au clavier ; glossaire complet dans la documentation | fait |
 | Campagnes chaînées : repartir du front de la génération finale (ou d'une intermédiaire) d'une campagne finie | fait |
-| Images : import DICOM pseudonymisé, visionneuse (fenêtrage, zoom), test d'un individu au choix (génération finale par défaut) | fait, résultat **simulé** |
+| Campagnes finies : désactiver (ignorée partout, réactivable) ou supprimer définitivement, depuis la liste | fait |
+| Images : import DICOM pseudonymisé, visionneuse (fenêtrage, zoom), test d'un individu au choix (génération finale par défaut) | fait : score du **CNN entraîné** et zones d'attention (Grad-CAM) via le service `mammomesh-inference` (`make inference`), sinon résultat simulé ; CephaloMesh pas encore branché |
 | Documentation intégrée : CNN et CephaloMesh expliqués simplement, fonctionnement, modèle mathématique (KaTeX), guides d'écran, lexique des mutations, jeux d'entraînement, glossaire, installation sur Windows 11 (avec PDF) | fait, aussi dans `docs/` |
 | Docker compose : Caddy, web, api, orchestrator, migrate, PostgreSQL 18, Redis 8, SeaweedFS, sauvegarde, observabilité | fait |
 | Boucle CNN + CephaloMesh | **simulée** (déterministe) : le vrai couple arrive aux jalons 1 à 3 |
-| CNN de base (EfficientNet-B0, malin ou bénin sur CMMD) | fait : entraînement sur GPU, suivi en direct et temps de fin estimés, nouvel entraînement, pause, reprise, relance et suppression depuis l'interface, reprise automatique quand le GPU est libre ; pas encore branché au test d'image |
+| CNN de base (EfficientNet-B0, malin ou bénin sur CMMD) | fait : entraînement sur GPU, suivi en direct et temps de fin estimés, nouvel entraînement, pause, reprise, relance et suppression depuis l'interface, reprise automatique quand le GPU est libre ; branché au test d'image (service d'inférence) |
 | Installation | script pour un nouveau serveur Linux (détection du matériel), procédure Windows 11 (WSL, PDF), démarrage automatique (services systemd) | fait |
 | Banque d'entraînement, chaîne d'import DICOM complète (JPEG 2000, pseudonymisation de la banque), moteur d'analyse, Triton, entraînement | jalons 0 et 1 |
 
@@ -136,6 +137,23 @@ python -m mammomesh_engine.cnn --banque ../banque                               
 - **Relancer, supprimer** : depuis la page Entraînements (administrateur et responsable scientifique). L'API dépose une demande dans `modeles/.demandes/` (seul dossier où elle écrit, droits 777 posés par `scripts/demarrer-pile.sh` et le veilleur) ; le veilleur l'exécute dans les 5 s. « Reprendre » repart de la dernière époque finie ; « Relancer » crée un nouvel entraînement aux mêmes réglages, en file d'attente du GPU ; « Supprimer » arrête l'entraînement s'il tourne, puis efface son dossier et son journal. « Pause » libère le GPU, à la fin de l'époque en cours (rien n'est perdu) ou tout de suite (l'époque en cours sera refaite) ; un entraînement en pause ne repart qu'avec « Reprendre ». « Nouvel entraînement » ouvre un formulaire de réglages.
 - **Suivi** : menu **Entraînements** de l'interface (rafraîchi toutes les 5 s) : phase, avancement, courbes d'AUC et de perte par époque, résultat final, plan matériel. L'API lit `./modeles` en lecture seule (`MODELES_DIR`, monté d'office par Docker ; en développement : `MODELES_DIR=../modeles make dev-api`). Chaque entraînement y écrit `etat.json` (phase et pas, toutes les 10 s), `journal.csv` (une ligne par époque) et `rapport.json` (à la fin). Les fichiers doivent être lisibles par tous (umask 022 par défaut), le conteneur `api` ne tourne pas sous ton compte.
 - Les poids ImageNet de torchvision viennent d'un jeu d'images sous conditions non commerciales : à réexaminer avant tout usage commercial (ou entraîner avec `--sans-preentrainement`).
+
+### Tester une image avec le CNN entraîné
+
+Le menu « Images » envoie l'image au service d'inférence du moteur (`mammomesh_engine.inference`), qui tourne sur l'hôte avec le `.venv` de l'entraînement :
+
+```bash
+make inference                                       # tout : moteur vérifié, service démarré, API reconstruite et vérifiée
+make inference INFERENCE_OPTS=--sans-build           # sans reconstruire l'image de l'API
+journalctl --user -u mammomesh-inference -f          # modèle chargé, adresse d'écoute
+# ou à la main, pour essayer :
+cd engine && .venv/bin/python -m mammomesh_engine.inference --modeles ../modeles --hote docker
+```
+
+- Modèle : le plus récent entraînement fini de `modeles/` (`MODELE=cnn-cmmd-…` pour en imposer un), rechargé quand son `modele.pt` change.
+- Appareil : CPU par défaut (2 à 3 s par image), pour laisser le GPU aux entraînements ; `INFERENCE_APPAREIL=cuda` sinon.
+- L'API le joint sur `http://host.docker.internal:8765` (`INFERENCE_URL`, vide dans `.env` : retour aux tests simulés). Un pare-feu sur l'hôte doit laisser passer le port 8765 depuis les réseaux Docker.
+- Résultat : score de malignité de l'image, seuil choisi à l'entraînement, et jusqu'à trois zones d'attention (Grad-CAM) : elles montrent où le CNN a regardé, ce ne sont pas des lésions détectées. CephaloMesh n'est pas encore branché : l'individu choisi ne change pas le score.
 
 ## Brancher Claude Code (MCP)
 

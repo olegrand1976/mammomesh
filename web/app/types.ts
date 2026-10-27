@@ -55,6 +55,19 @@ export interface ResultatTest {
   duree_ms: number
   zones: Zone[]
   avertissement: string
+  /** CNN réel seulement : modèle, époque retenue, seuil choisi à l'entraînement, score au-dessus du seuil. */
+  modele?: string
+  epoque?: number
+  seuil?: number
+  signale?: boolean
+}
+
+/** GET /api/inference : tests d'images simulés, ou CNN entraîné (service mammomesh-inference). */
+export interface EtatInference {
+  mode: 'simulation' | 'cnn'
+  joignable?: boolean
+  erreur?: string
+  etat?: { modele: string; epoque: number | null; seuil: number | null; fini: boolean; appareil: string }
 }
 
 export interface ImageTest {
@@ -98,6 +111,8 @@ export interface Campaign {
   started_at: string | null
   finished_at: string | null
   updated_at: string
+  /** Non nul : campagne désactivée, ignorée partout sauf dans la liste complète. */
+  disabled_at: string | null
 }
 
 export interface Generation {

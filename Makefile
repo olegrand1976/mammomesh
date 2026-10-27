@@ -1,5 +1,5 @@
 # Raccourcis de développement. La production passe par docker compose (voir README).
-.PHONY: deployer secrets up down logs test test-backend test-web test-engine e2e dev-api dev-orchestrator dev-web ca exemples banque materiel
+.PHONY: deployer inference secrets up down logs test test-backend test-web test-engine e2e dev-api dev-orchestrator dev-web ca exemples banque materiel
 
 secrets:
 	./scripts/init-secrets.sh
@@ -16,6 +16,10 @@ materiel:
 # Tests backend, reconstruction de la pile (et du veilleur), git push. DEPLOYER_OPTS=--sans-tests|--sans-push.
 deployer:
 	./scripts/deployer.sh $(DEPLOYER_OPTS)
+
+# Tests d'images par le CNN entraîné : service mammomesh-inference + API reconstruite, puis vérification.
+inference:
+	./scripts/activer-inference.sh $(INFERENCE_OPTS)
 
 down:
 	docker compose down

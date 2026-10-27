@@ -71,6 +71,13 @@ async function supprimer(im: ImageRow) {
 }
 
 const taille = (o: number) => o > 1e6 ? `${fr(o / 1e6, 1)} Mo` : `${fr(o / 1e3, 0)} ko`
+
+/** Compression du fichier, en mots (syntaxe de transfert DICOM). */
+const compression = (uid: string) => ({
+  '1.2.840.10008.1.2': 'non compressé', '1.2.840.10008.1.2.1': 'non compressé', '1.2.840.10008.1.2.2': 'non compressé',
+  '1.2.840.10008.1.2.4.50': 'JPEG de base', '1.2.840.10008.1.2.4.70': 'JPEG sans perte',
+  '1.2.840.10008.1.2.4.90': 'JPEG 2000 sans perte', '1.2.840.10008.1.2.4.91': 'JPEG 2000',
+} as Record<string, string>)[uid] ?? `compression ${uid}`
 </script>
 
 <template>
@@ -79,6 +86,12 @@ const taille = (o: number) => o > 1e6 ? `${fr(o / 1e6, 1)} Mo` : `${fr(o / 1e3, 
       <h1>Images</h1>
       <span class="research-tag">recherche uniquement</span>
     </div>
+    <p class="muted small intro">
+      Importer une mammographie, la regarder en détail, et voir ce qu'une version de MammoMesh trouvée par une campagne y signale.
+      Selon la configuration, le résultat est le score du CNN entraîné (CephaloMesh n'est pas encore branché) ou une simulation ;
+      dans les deux cas, ce n'est pas un avis médical.
+    </p>
+    <GuideImages />
     <p v-if="error" class="alert" role="alert">{{ error }}</p>
     <p v-if="info" class="notice" role="status">{{ info }}</p>
     <div class="disposition">
@@ -94,8 +107,8 @@ const taille = (o: number) => o > 1e6 ? `${fr(o / 1e6, 1)} Mo` : `${fr(o / 1e3, 
             {{ envoi ? 'Import…' : 'Choisir un fichier DICOM' }}
             <input type="file" accept=".dcm,application/dicom" :disabled="envoi" @change="(e) => importer((e.target as HTMLInputElement).files?.[0])">
           </label>
-          <p class="small muted">Fichier <Sigle t="DICOM" />, ou le déposer ici. Rien d'identifiant n'est gardé : ni nom, ni identifiant, ni dates, ni établissement, ni nom de fichier ; seulement les pixels et des données techniques (dimensions, vue, latéralité, fabricant). Images à annotations incrustées refusées. Formats lus : non compressé et <Sigle t="JPEG" /> de base.</p>
-          <p class="small">Pas d'image sous la main ? Exemples synthétiques (vues <Sigle t="CC" /> et <Sigle t="MLO" />) :
+          <p class="small muted">Un fichier <Sigle t="DICOM" /> (le format des appareils de radiologie), à choisir ou à déposer ici. Tout ce qui identifie la patiente est supprimé : nom, identifiant, dates, établissement, nom du fichier. Seuls l'image et quelques informations techniques sont gardés (taille, vue, côté, fabricant). Les images où du texte est incrusté dans les pixels sont refusées, car il pourrait contenir un nom. Formats lus : non compressé et <Sigle t="JPEG" /> de base.</p>
+          <p class="small">Pas d'image sous la main ? Exemples synthétiques, fabriqués de toutes pièces (vues <Sigle t="CC" /> et <Sigle t="MLO" />) :
             <a href="/api/images/exemple.dcm?vue=CC&cote=L" download>CC gauche</a> ·
             <a href="/api/images/exemple.dcm?vue=MLO&cote=L" download>MLO gauche</a> ·
             <a href="/api/images/exemple.dcm?vue=CC&cote=R" download>CC droite</a> ·
@@ -103,6 +116,7 @@ const taille = (o: number) => o > 1e6 ? `${fr(o / 1e6, 1)} Mo` : `${fr(o / 1e3, 
         </section>
         <section class="card">
           <h2>Images importées</h2>
+          <p class="small muted">Taille en pixels · vue (<Sigle t="CC" /> de dessus, <Sigle t="MLO" /> de biais) et côté (L gauche, R droit) · tests déjà faits. Un clic ouvre l'image.</p>
           <p v-if="!images.length" class="muted small">Aucune image pour l'instant.</p>
           <ul class="liste">
             <li v-for="im in images" :key="im.id" :class="{ actif: choisie?.id === im.id }">
@@ -119,10 +133,13 @@ const taille = (o: number) => o > 1e6 ? `${fr(o / 1e6, 1)} Mo` : `${fr(o / 1e3, 
         <div class="row">
           <h2>{{ choisie.libelle }}</h2>
           <div class="spacer" />
-          <span class="small muted">{{ choisie.meta.modality }} · {{ choisie.meta.manufacturer || 'fabricant inconnu' }} · {{ choisie.meta.bits_stored }} bits · {{ choisie.meta.transfer_syntax }}</span>
+          <span class="small muted" :title="`Modalité ${choisie.meta.modality} · syntaxe de transfert ${choisie.meta.transfer_syntax}`">{{ choisie.meta.modality === 'MG' ? 'mammographie' : choisie.meta.modality }} · {{ choisie.meta.manufacturer || 'fabricant inconnu' }} · {{ choisie.meta.bits_stored }} bits par pixel · {{ compression(choisie.meta.transfer_syntax) }}</span>
         </div>
         <VisionneuseDicom :key="choisie.id" :meta="choisie.meta" :pixels="pixels" :zones="test?.resultat.zones" :zone-active="zoneActive" @zone="zoneActive = $event" />
-        <p class="small muted">Glisser : déplacer · clic droit glissé (ou Maj) : fenêtrage · molette : zoom · double-clic : ajuster · touches + − 0 i f z.</p>
+        <p class="small muted">
+          Souris : glisser pour déplacer · molette pour zoomer · clic droit glissé (ou Maj + glisser) pour régler le contraste (« fenêtrage ») · double-clic pour revenir à l'image entière.
+          Clavier : + et − zoom · 0 image entière · i inverser noir et blanc · f contraste d'origine · z afficher ou masquer les zones.
+        </p>
       </section>
       <TestIndividu v-if="choisie" :image-id="choisie.id" class="colonne-test" @resultat="test = $event; zoneActive = null; charger()" />
     </div>
@@ -132,6 +149,7 @@ const taille = (o: number) => o > 1e6 ? `${fr(o / 1e6, 1)} Mo` : `${fr(o / 1e3, 
 <style scoped>
 .head { margin-bottom: 14px; }
 .head h1 { margin: 0; font-size: 1.4rem; }
+.intro { margin: 0 0 10px; max-width: 900px; }
 .disposition { display: grid; gap: 16px; grid-template-columns: 280px minmax(0, 1fr) 300px; align-items: start; }
 @media (max-width: 1100px) { .disposition { grid-template-columns: 1fr; } }
 .colonne { gap: 16px; }

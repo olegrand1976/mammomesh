@@ -39,7 +39,7 @@ const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`
       <p>Il réunit deux parties :</p>
       <ul class="duo">
         <li>
-          <strong>le <Sigle t="CNN" /></strong>, un programme d'intelligence artificielle qui <em>regarde</em> l'image
+          <strong>le <Sigle t="CNN" /></strong>, un modèle d'apprentissage automatique (une branche de l'intelligence artificielle) qui <em>regarde</em> l'image
           et repère ce qui pourrait être une lésion ;
         </li>
         <li>
@@ -87,8 +87,8 @@ const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`
       </div>
 
       <p class="small muted note">
-        Exemples illustratifs : ils montrent le fonctionnement visé. Aujourd'hui, le <Sigle t="CNN" /> s'entraîne réellement,
-        mais CephaloMesh est encore simulé. Aucun résultat ne sert à poser un diagnostic.
+        Exemples illustratifs : ils montrent le fonctionnement visé. Aujourd'hui, le <Sigle t="CNN" /> s'entraîne réellement et peut déjà
+        noter une image (menu Images), mais CephaloMesh est encore simulé. Aucun résultat ne sert à poser un diagnostic.
         <NuxtLink to="/suivi/documentation/cnn-cephalomesh">En savoir plus sur le CNN et CephaloMesh</NuxtLink>.
       </p>
     </section>

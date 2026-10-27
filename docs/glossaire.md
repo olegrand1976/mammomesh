@@ -32,7 +32,7 @@ Dans l'application : menu « Documentation » › « Glossaire » (`/suivi/docum
 
 **CMMD** (Chinese Mammography Database) : Jeu public de mammographies numériques de 1 775 patientes, bénin ou malin prouvé par biopsie (TCIA, licence CC BY 4.0). Sert au premier CNN.
 
-**CNN** (Convolutional Neural Network, réseau de neurones convolutif) : Programme qui apprend à reconnaître des motifs dans les images. Dans MammoMesh, c'est le « regard » : il lit la mammographie et donne un score.
+**CNN** (Convolutional Neural Network, réseau de neurones convolutif) : Modèle d'apprentissage automatique (une branche de l'intelligence artificielle) conçu pour les images : des couches de calcul dont les réglages, les poids, sont appris sur des exemples. Dans MammoMesh, c'est le « regard » : il lit la mammographie et donne un score.
 
 **CPU** (Central Processing Unit) : Processeur principal de la machine. Sans GPU, l'entraînement s'y fait, mais très lentement.
 
@@ -57,6 +57,8 @@ Dans l'application : menu « Documentation » › « Glossaire » (`/suivi/docum
 **FRDR** (Federated Research Data Repository) : Dépôt canadien de données de recherche qui héberge NLBS ; téléchargement par Globus.
 
 **GPU** (Graphics Processing Unit, carte graphique) : Processeur massivement parallèle : il entraîne le CNN des dizaines de fois plus vite qu'un CPU.
+
+**Grad-CAM** (Gradient-weighted Class Activation Mapping) : Carte d'attention d'un CNN : elle montre les régions de l'image qui ont le plus pesé dans son score. Ce n'est pas une détection de lésion.
 
 **HTTPS** (HTTP Secure) : Web chiffré ; le site MammoMesh n'est servi qu'en HTTPS, avec le certificat de son autorité interne (Caddy).
 
@@ -148,13 +150,15 @@ Dans l'application : menu « Documentation » › « Glossaire » (`/suivi/docum
 
 **Individu** : Une version complète du couple CNN + CephaloMesh, décrite par son génome (ses réglages), mesurée puis comparée aux autres.
 
+**Inférence** : Utilisation d'un modèle déjà entraîné pour donner un score à une nouvelle image, sans rien apprendre. Dans MammoMesh, le service mammomesh-inference fait ce calcul pour le menu Images.
+
 **Latéralité** : Côté du sein sur l'image : gauche (L) ou droit (R).
 
 **Lot** : Groupe d'images traitées ensemble par le GPU (batch) ; sa taille dépend de la mémoire disponible.
 
 **Mutation** : Petite modification d'un réglage d'un individu pour produire un descendant ; chaque code de mutation est expliqué dans le lexique.
 
-**Perte** : Erreur moyenne du CNN pendant l'apprentissage ; elle doit baisser d'époque en époque.
+**Perte** : Erreur moyenne du CNN sur les images d'apprentissage : elle pénalise une mauvaise réponse d'autant plus qu'il en est sûr. Elle doit baisser d'époque en époque ; seule, elle ne dit pas si le CNN réussit sur des images nouvelles (c'est le rôle de l'AUC d'ajustement).
 
 **Plancher de sensibilité** : Sensibilité minimale exigée : un individu en dessous n'est pas réalisable, quel que soit son temps de calcul.
 
@@ -166,7 +170,7 @@ Dans l'application : menu « Documentation » › « Glossaire » (`/suivi/docum
 
 **Sensibilité** : Part des cancers effectivement repérés. Une sensibilité de 0,85 : 85 cancers trouvés sur 100.
 
-**Seuil** : Score au-dessus duquel un sein est déclaré suspect ; il est choisi en ajustement pour atteindre la sensibilité cible.
+**Seuil** : Score au-dessus duquel un sein (ou, dans le menu Images, une image) est déclaré suspect ; il est choisi en ajustement pour atteindre la sensibilité cible.
 
 **Spécificité** : Part des cas non malins correctement écartés. Plus elle est haute, moins il y a de fausses alertes.
 

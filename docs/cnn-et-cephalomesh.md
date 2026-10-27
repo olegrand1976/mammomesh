@@ -10,12 +10,12 @@ Cette page explique ce que fait chacun, ce qui lui manque, et pourquoi les combi
 
 ## Le CNN : l'œil
 
-Un CNN (réseau de neurones convolutif) est un programme d'intelligence artificielle spécialisé dans les images. Il ne suit pas des règles écrites à la main : il apprend à partir d'exemples.
+Un CNN (réseau de neurones convolutif) est un modèle d'apprentissage automatique, une branche de l'intelligence artificielle, conçu pour les images. C'est un empilement de couches de calcul dont les réglages (les poids) ne sont pas écrits à la main : ils sont appris à partir d'exemples.
 
 - Comment il regarde : il parcourt l'image par petits morceaux. Ses premiers étages repèrent des éléments simples (bords, taches claires, contrastes) ; les étages suivants les assemblent en formes plus parlantes (amas de petits points, contour irrégulier, masse).
 - Comment il apprend : on lui montre des milliers de mammographies dont le diagnostic est connu (confirmé par biopsie). À chaque erreur, il ajuste un peu ses millions de réglages internes, appelés poids. Un passage complet sur toutes les images d'exemple s'appelle une époque.
 - Ce qu'il produit : un score de suspicion et, à terme, les zones de l'image qui l'ont alerté, chacune avec un degré de confiance.
-- Dans MammoMesh : le point de départ est EfficientNet-B0, un réseau qui sait déjà reconnaître des images courantes, réentraîné sur les mammographies de la banque CMMD. Pour l'instant, il donne un score par image, pas encore de zones, car CMMD n'indique pas le contour des lésions.
+- Dans MammoMesh : le point de départ est EfficientNet-B0, un réseau qui sait déjà reconnaître des images courantes, réentraîné sur les mammographies de la banque CMMD. Pour l'instant, il donne un score par image ; CMMD n'indiquant pas le contour des lésions, les zones affichées montrent seulement où il a regardé (carte d'attention), pas des lésions délimitées.
 
 Ses forces : il repère des détails visuels très fins, sans fatigue, et vite. Ses limites : il juge chaque image séparément. Il ne sait pas que deux images montrent le même sein sous deux angles, il ne compare pas le sein gauche au sein droit, ni l'examen du jour à celui d'il y a deux ans. Un défaut sur une seule image peut le tromper, et il explique mal pourquoi il s'alerte.
 
@@ -68,5 +68,6 @@ Les deux parties évoluent à deux vitesses. CephaloMesh se teste en un instant 
 ## Où en est le projet
 
 - Le CNN est réel : un premier modèle s'entraîne sur la carte graphique (GPU) du serveur, menu Entraînements.
+- Le menu Images peut tester une image avec ce CNN entraîné (service mammomesh-inference) : score de l'image et zones où il a regardé.
 - CephaloMesh et la boucle d'évolution sont encore simulés : les campagnes fonctionnent, mais leurs mesures n'ont pas de valeur tant que le CNN entraîné n'y est pas branché.
 - Dans tous les cas, la décision reste humaine : l'évolution propose des candidats, seule une personne habilitée peut en retenir un.

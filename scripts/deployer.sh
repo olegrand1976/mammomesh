@@ -47,6 +47,10 @@ if systemctl --user cat mammomesh-entrainement.service >/dev/null 2>&1; then
 else
   echo "Veilleur d'entraînement non installé (scripts/installer-services.sh) : rien à redémarrer."
 fi
+if systemctl --user cat mammomesh-inference.service >/dev/null 2>&1; then
+  systemctl --user restart mammomesh-inference.service
+  echo "Service d'inférence redémarré ($(systemctl --user is-active mammomesh-inference.service))."
+fi
 
 if (( push )); then
   etape "3/3 Envoi sur le dépôt distant"

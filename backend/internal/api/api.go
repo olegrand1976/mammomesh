@@ -37,7 +37,8 @@ type Server struct {
 	loginLimit *auth.Limiter // par identifiant
 	ipLimit    *auth.Limiter // par adresse : plus large, plusieurs personnes peuvent partager un poste
 	mcpLimit   *auth.Limiter
-	images     imagerie.Store // pixels des images de test ; nil : routes d'images indisponibles
+	images     imagerie.Store   // pixels des images de test ; nil : routes d'images indisponibles
+	moteur     *imagerie.Moteur // inférence du CNN ; nil : tests d'images simulés
 }
 
 // Limits regroupe les limiteurs de débit.
@@ -84,6 +85,7 @@ func (s *Server) Router() http.Handler {
 			r.Get("/api/campaigns/{id}/events", s.listEvents)
 			r.Get("/api/campaigns/{id}/stream", s.stream)
 			r.Post("/api/campaigns/{id}/control", s.control)
+			r.Delete("/api/campaigns/{id}", s.deleteCampaign)
 			r.Get("/api/individuals/{id}", s.getIndividual)
 			r.Get("/api/config/default", s.defaultConfig)
 			r.Post("/api/drafts", s.createDraft)
@@ -101,6 +103,7 @@ func (s *Server) Router() http.Handler {
 			r.Delete("/api/images/{id}", s.deleteImage)
 			r.Get("/api/images/{id}/tests", s.listImageTests)
 			r.Post("/api/images/{id}/tests", s.testImage)
+			r.Get("/api/inference", s.etatInference)
 			r.Get("/api/entrainements", s.listEntrainements)
 			r.Post("/api/entrainements", s.nouvelEntrainement)
 			r.Get("/api/entrainements/{nom}", s.getEntrainement)
@@ -312,7 +315,7 @@ func queryInt(r *http.Request, key string, def int) int {
 }
 
 func (s *Server) listCampaigns(w http.ResponseWriter, r *http.Request) {
-	list, err := s.st.ListCampaigns(r.Context(), 100)
+	list, err := s.st.ListCampaigns(r.Context(), 100, r.URL.Query().Get("desactivees") == "1")
 	if err != nil {
 		s.fail(w, err)
 		return
@@ -416,13 +419,39 @@ func (s *Server) control(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &in) {
 		return
 	}
-	c, err := s.st.Control(r.Context(), id, in.Action, in.HausseBudget)
+	var c store.Campaign
+	var err error
+	switch in.Action {
+	case "desactiver", "reactiver":
+		c, err = s.st.SetCampaignDisabled(r.Context(), id, in.Action == "desactiver")
+	default:
+		c, err = s.st.Control(r.Context(), id, in.Action, in.HausseBudget)
+	}
 	if err != nil {
 		s.fail(w, err)
 		return
 	}
 	s.st.Audit(r.Context(), u.ID, "interface", "campagne."+in.Action, map[string]any{"campagne": id, "hausse_budget": in.HausseBudget})
 	writeJSON(w, http.StatusOK, map[string]any{"campaign": c})
+}
+
+func (s *Server) deleteCampaign(w http.ResponseWriter, r *http.Request) {
+	u := userFrom(r.Context())
+	if !auth.CanRunCampaigns(u.Role) {
+		writeError(w, http.StatusForbidden, "rôle insuffisant")
+		return
+	}
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	c, err := s.st.DeleteCampaign(r.Context(), id)
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	s.st.Audit(r.Context(), u.ID, "interface", "campagne.suppression", map[string]any{"campagne": id, "nom": c.Name})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) getIndividual(w http.ResponseWriter, r *http.Request) {

@@ -2,7 +2,7 @@
 
 Importer une mammographie sans rien garder d'identifiant, la lire, et y tester une version du couple CNN + CephaloMesh choisie dans une campagne (génération finale par défaut).
 
-> Version du socle : le résultat d'un test est **simulé** (déterministe, sans valeur) tant que le CNN et CephaloMesh ne sont pas branchés.
+> Version du socle : le résultat d'un test vient du **CNN entraîné** si le service d'inférence tourne (CephaloMesh n'est pas encore branché) ; sinon il est **simulé** (déterministe, sans valeur).
 
 ![Écran Images](images/images.png)
 
@@ -38,7 +38,7 @@ L'image en pleine résolution (16 bits), avec les outils de lecture courants.
 | Ajuster, 1:1, +, − | Image entière dans le cadre, taille réelle (un pixel d'image par pixel d'écran), zoom avant et arrière. La molette zoome autour du pointeur ; glisser déplace l'image ; double-clic : ajuster. |
 | Fenêtrage (centre, largeur) | Choisit la plage de valeurs affichée du noir au blanc : centre = niveau moyen, largeur = contraste (plus étroite, plus contrastée). Curseurs sous l'image, ou clic droit glissé (Maj + glisser) : horizontalement la largeur, verticalement le centre. |
 | Inverser, Fenêtre d'origine | Inverse les niveaux de gris ; « Fenêtre d'origine » revient à la fenêtre du fichier (ou, à défaut, aux centiles 1 % et 99 %) et au sens d'origine. |
-| Zones | Montre ou masque les zones du test affiché : cadre rouge numéroté avec son score ; survolée, la zone passe en jaune. |
+| Zones | Montre ou masque les zones du test affiché : cadre rouge numéroté avec son score (avec le CNN, l'intensité de son attention) ; survolée, la zone passe en jaune. |
 | Clavier | La visionneuse sélectionnée répond à + et − (zoom), 0 (ajuster), i (inverser), f (fenêtre d'origine), z (zones). |
 
 ## 4. Tester un individu
@@ -50,11 +50,13 @@ Choisir une version du couple CNN + CephaloMesh et la faire travailler sur l'ima
 | Campagne | Par défaut, la campagne terminée ou arrêtée la plus récente qui a des individus réalisables. |
 | Génération | Par défaut la génération finale ; toute génération intermédiaire avec un front peut être choisie. Les générations sans individu réalisable ne sont pas sélectionnables. |
 | Individu du front | Les individus du front de la génération, avec leur sensibilité sur E-val et leur coût ; par défaut le meilleur sur E-val. Ses mutations s'expliquent au survol. |
-| Tester sur cette image (simulation) | Lance le test et affiche le résultat : score de l'image, temps de calcul, zones signalées (type et score), superposées à l'image. |
-| Bandeau « Simulation » | Tant que le CNN et CephaloMesh ne sont pas branchés, le résultat est tiré de façon déterministe à partir de l'image et de l'individu : il n'a aucune valeur, ni diagnostique ni de recherche. |
-| Tests précédents | Historique des tests sur cette image (individu, génération, score, date) ; un clic réaffiche un résultat. |
+| Tester sur cette image (CNN) ou (simulation) | Lance le test. Le libellé dit qui répond : le CNN entraîné si le service d'inférence (mammomesh-inference) tourne et que l'API le joint, sinon la simulation. Sous le bouton : le modèle utilisé (nom, époque), ou une alerte si le moteur est injoignable. |
+| Bandeau d'avertissement | Rappelle d'où vient le résultat. En bleu, score du CNN seul : CephaloMesh n'est pas encore branché, l'individu choisi n'influence donc pas ce score. En orange, simulation : résultat tiré de façon déterministe à partir de l'image et de l'individu, sans aucune valeur. Dans les deux cas, ce n'est pas un avis médical. |
+| Score, seuil, image signalée | Avec le CNN : probabilité de malignité de l'image, de 0 (bénin) à 1 (malin), telle qu'apprise sur des seins biopsiés de CMMD ; ce n'est pas une probabilité de cancer en dépistage. Le seuil a été choisi à l'entraînement pour atteindre la sensibilité cible sur les images d'ajustement : au-dessus, l'image est « signalée ». Calcul : 2 à 3 s sur processeur. |
+| Zones d'attention | Avec le CNN : jusqu'à trois régions où il a le plus regardé pour donner son score (carte Grad-CAM), avec leur intensité de 0,5 à 1. Ce ne sont pas des lésions détectées : CMMD n'a pas de contours de lésions pour apprendre à les délimiter. |
+| Tests précédents | Historique des tests sur cette image (individu, génération pour une simulation ou modèle pour le CNN, score, date) ; un clic réaffiche un résultat. |
 
-**À savoir.** Le même individu sur la même image donne toujours le même résultat simulé ; un individu plus sensible signale en moyenne plus de zones.
+**À savoir.** Le même individu sur la même image donne toujours le même résultat. Avec le CNN, tous les individus donnent le même score tant que CephaloMesh n'est pas branché ; en simulation, un individu plus sensible signale en moyenne plus de zones. Pour activer le CNN, lancer make inference à la racine du dépôt.
 
 ## Stockage
 

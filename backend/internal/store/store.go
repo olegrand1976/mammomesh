@@ -259,16 +259,17 @@ type Campaign struct {
 	StartedAt       *time.Time      `json:"started_at"`
 	FinishedAt      *time.Time      `json:"finished_at"`
 	UpdatedAt       time.Time       `json:"updated_at"`
+	DisabledAt      *time.Time      `json:"disabled_at"` // non nil : campagne désactivée, ignorée partout sauf dans la liste complète
 }
 
 const campaignCols = `id, name, lineage, state, generation, max_generations, budget_total, budget_used,
-	best_sensitivity, stagnation, config_hash, config, created_at, started_at, finished_at, updated_at`
+	best_sensitivity, stagnation, config_hash, config, created_at, started_at, finished_at, updated_at, disabled_at`
 
 func scanCampaign(r pgx.Row) (Campaign, error) {
 	var c Campaign
 	var cfg []byte
 	err := r.Scan(&c.ID, &c.Name, &c.Lineage, &c.State, &c.Generation, &c.MaxGenerations, &c.BudgetTotal, &c.BudgetUsed,
-		&c.BestSensitivity, &c.Stagnation, &c.ConfigHash, &cfg, &c.CreatedAt, &c.StartedAt, &c.FinishedAt, &c.UpdatedAt)
+		&c.BestSensitivity, &c.Stagnation, &c.ConfigHash, &cfg, &c.CreatedAt, &c.StartedAt, &c.FinishedAt, &c.UpdatedAt, &c.DisabledAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return c, ErrNotFound
 	}
@@ -278,9 +279,9 @@ func scanCampaign(r pgx.Row) (Campaign, error) {
 	return c, err
 }
 
-// ListCampaigns renvoie les campagnes, les plus récentes d'abord.
-func (s *Store) ListCampaigns(ctx context.Context, limit int) ([]Campaign, error) {
-	rows, err := s.Pool.Query(ctx, `SELECT `+campaignCols+` FROM campaigns ORDER BY id DESC LIMIT $1`, limit)
+// ListCampaigns renvoie les campagnes, les plus récentes d'abord ; les désactivées seulement si demandé.
+func (s *Store) ListCampaigns(ctx context.Context, limit int, includeDisabled bool) ([]Campaign, error) {
+	rows, err := s.Pool.Query(ctx, `SELECT `+campaignCols+` FROM campaigns WHERE $2 OR disabled_at IS NULL ORDER BY id DESC LIMIT $1`, limit, includeDisabled)
 	if err != nil {
 		return nil, err
 	}
@@ -383,6 +384,8 @@ func (s *Store) checkDepart(ctx context.Context, d campaign.Depart) campaign.Che
 	switch {
 	case err != nil:
 		ch.Detail = fmt.Sprintf("campagne de départ %d introuvable", d.CampagneID)
+	case c.DisabledAt != nil:
+		ch.Detail = fmt.Sprintf("la campagne %d est désactivée : réactivez-la pour partir de son front", d.CampagneID)
 	case c.State != "terminee" && c.State != "arretee":
 		ch.Detail = fmt.Sprintf("la campagne %d doit être terminée ou arrêtée (état : %s)", d.CampagneID, c.State)
 	case d.Generation < 1 || d.Generation > c.Generation:
@@ -458,6 +461,55 @@ func (s *Store) LaunchDraft(ctx context.Context, id, userID int64) (Campaign, er
 
 // ErrBadTransition : réglage à chaud refusé dans cet état.
 var ErrBadTransition = errors.New("changement d'état impossible depuis l'état actuel")
+
+// SetCampaignDisabled désactive (ou réactive) une campagne finie : elle reste consultable, mais n'est plus prise en compte.
+func (s *Store) SetCampaignDisabled(ctx context.Context, id int64, disabled bool) (Campaign, error) {
+	var out Campaign
+	err := pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
+		c, err := scanCampaign(tx.QueryRow(ctx, `SELECT `+campaignCols+` FROM campaigns WHERE id=$1 FOR UPDATE`, id))
+		if err != nil {
+			return err
+		}
+		if disabled && (c.State == "en_cours" || c.State == "en_pause") {
+			return InvalidError("arrêtez la campagne avant de la désactiver")
+		}
+		if (c.DisabledAt != nil) == disabled {
+			out = c
+			return nil
+		}
+		msg, typ := "Campagne désactivée : elle n'est plus prise en compte.", "campagne_desactivee"
+		if !disabled {
+			msg, typ = "Campagne réactivée.", "campagne_reactivee"
+		}
+		if _, err := tx.Exec(ctx, `UPDATE campaigns SET disabled_at = CASE WHEN $2 THEN now() END, updated_at=now() WHERE id=$1`, id, disabled); err != nil {
+			return err
+		}
+		if err := InsertEvent(ctx, tx, &id, typ, msg, map[string]any{}); err != nil {
+			return err
+		}
+		out, err = scanCampaign(tx.QueryRow(ctx, `SELECT `+campaignCols+` FROM campaigns WHERE id=$1`, id))
+		return err
+	})
+	return out, err
+}
+
+// DeleteCampaign supprime définitivement une campagne finie, avec ses générations, individus, journal et tests d'images.
+func (s *Store) DeleteCampaign(ctx context.Context, id int64) (Campaign, error) {
+	var out Campaign
+	err := pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
+		c, err := scanCampaign(tx.QueryRow(ctx, `SELECT `+campaignCols+` FROM campaigns WHERE id=$1 FOR UPDATE`, id))
+		if err != nil {
+			return err
+		}
+		if c.State == "en_cours" || c.State == "en_pause" {
+			return InvalidError("arrêtez la campagne avant de la supprimer")
+		}
+		out = c
+		_, err = tx.Exec(ctx, `DELETE FROM campaigns WHERE id=$1`, id)
+		return err
+	})
+	return out, err
+}
 
 // Control applique un réglage à chaud : pause, reprise, arrêt, hausse du budget.
 func (s *Store) Control(ctx context.Context, id int64, action string, budgetIncrease float64) (Campaign, error) {

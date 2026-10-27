@@ -29,23 +29,16 @@ onBeforeUnmount(() => store.disconnect())
         {{ aidesToutes ? 'Masquer les aides' : 'Afficher toutes les aides' }}
       </button>
     </div>
-    <details v-if="store.campaign" class="card lecture">
-      <summary>Comment lire cet écran</summary>
-      <ol>
-        <li><strong>Bandeau</strong> : état, commandes et chiffres clés (génération, budget, meilleure sensibilité, fin estimée).</li>
-        <li><strong>Progrès par génération</strong> : le meilleur et la médiane progressent-ils, l'optimisme de la sélection reste-t-il faible ?</li>
-        <li><strong>Front de Pareto</strong> : les meilleurs compromis sensibilité / coût ; un clic sur un point ouvre sa fiche.</li>
-        <li><strong>Journal</strong> : chaque événement en phrase, le plus récent en tête.</li>
-      </ol>
-      <p class="muted small">Tout se met à jour en direct, sans recharger. Chaque zone a son bouton <span class="q">?</span>. Fonctionnement complet et lexique des mutations : <NuxtLink to="/suivi/documentation">Documentation</NuxtLink> · guide détaillé : <code>docs/guide-suivi-campagne.md</code>.</p>
-    </details>
+    <GuideCampagne v-if="store.campaign" />
     <p v-if="error" class="alert">{{ error }}</p>
     <div v-if="store.campaign" class="grid">
       <StatusBanner />
+      <LectureCampagne v-if="store.campaign.state !== 'en_cours' && store.campaign.state !== 'en_pause'" />
       <div class="grid grid-2">
         <ProgressChart />
         <FrontChart @select="selected = $event" />
       </div>
+      <LectureCampagne v-if="store.campaign.state === 'en_cours' || store.campaign.state === 'en_pause'" />
       <IndividualCard :id="selected" @close="selected = null" />
       <JournalList />
     </div>
@@ -57,8 +50,4 @@ onBeforeUnmount(() => store.disconnect())
 .crumbs { margin: 0 0 10px; }
 .crumbs p { margin: 0; }
 .btn-sm { padding: 4px 10px; font-size: 0.85rem; }
-.lecture { margin-bottom: 14px; padding: 12px 18px; }
-.lecture summary { cursor: pointer; font-weight: 600; }
-.lecture ol { margin: 10px 0 8px; padding-left: 20px; display: grid; gap: 4px; }
-.q { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border); font-size: 0.7rem; font-weight: 600; }
 </style>

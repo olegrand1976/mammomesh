@@ -29,6 +29,8 @@ type Config struct {
 	ImagesURL        string // filer SeaweedFS des images de test (prioritaire)
 	ImagesDir        string // à défaut, dossier local
 	ModelesDir       string // dossiers d'entraînement du CNN, lus par le suivi ; vide : suivi indisponible
+	InferenceURL     string // service d'inférence du CNN (engine) ; vide : tests d'images simulés
+	InferenceJeton   string // facultatif, partagé avec le service d'inférence
 }
 
 // Load construit la configuration. Un secret se lit dans le fichier désigné par NOM_FILE
@@ -46,6 +48,8 @@ func Load() (Config, error) {
 		ImagesURL:        env("IMAGES_URL", ""),
 		ImagesDir:        env("IMAGES_DIR", "data/images"),
 		ModelesDir:       env("MODELES_DIR", ""),
+		InferenceURL:     env("INFERENCE_URL", ""),
+		InferenceJeton:   env("INFERENCE_JETON", ""),
 	}
 	if o := env("ALLOWED_ORIGINS", ""); o != "" {
 		for _, s := range strings.Split(o, ",") {

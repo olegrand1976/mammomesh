@@ -46,19 +46,30 @@ def en_8_bits(px: np.ndarray, monochrome1: bool) -> np.ndarray:
     return 255 - px if monochrome1 else px
 
 
+def a_retourner(img: np.ndarray) -> bool:
+    """Vrai si le sein (le côté le plus clair) est à droite."""
+    m = img.shape[1] // 2
+    return bool(img[:, m:].mean() > img[:, :m].mean())
+
+
 def orienter(img: np.ndarray) -> np.ndarray:
     """Met le sein à gauche (le côté le plus clair) : toutes les images se ressemblent pour le CNN."""
-    m = img.shape[1] // 2
-    return img[:, ::-1] if img[:, m:].mean() > img[:, :m].mean() else img
+    return img[:, ::-1] if a_retourner(img) else img
 
 
-def recadrer(img: np.ndarray) -> np.ndarray:
+def bornes_tissu(img: np.ndarray) -> tuple[int, int, int, int] | None:
+    """(première ligne, dernière ligne, première colonne, dernière colonne) du tissu ; None si trop petit."""
     tissu = img > SEUIL_TISSU
     lignes = np.flatnonzero(tissu.mean(axis=1) > PART_TISSU)
     cols = np.flatnonzero(tissu.mean(axis=0) > PART_TISSU)
     if len(lignes) < 16 or len(cols) < 16:
-        return img
-    return img[lignes[0]:lignes[-1] + 1, cols[0]:cols[-1] + 1]
+        return None
+    return int(lignes[0]), int(lignes[-1]), int(cols[0]), int(cols[-1])
+
+
+def recadrer(img: np.ndarray) -> np.ndarray:
+    b = bornes_tissu(img)
+    return img if b is None else img[b[0]:b[1] + 1, b[2]:b[3] + 1]
 
 
 def ajuster(img: np.ndarray, hauteur: int, largeur: int) -> np.ndarray:

@@ -27,6 +27,7 @@ Dans cette version du socle, la boucle est simulée. L'orchestrateur, les règle
 4. En cours ⇄ En pause : la pause prend effet à la fin du lot en cours ; à la reprise, la génération interrompue est refaite à l'identique.
 5. Fin : « Terminée » quand un critère d'arrêt est atteint, « Arrêtée » sur demande d'une personne, « En échec » si l'orchestrateur rencontre une erreur (détaillée au journal).
 6. Suite : depuis une campagne terminée ou arrêtée, « Repartir de cette campagne » prépare une nouvelle campagne qui reprend ses réglages, modifiables, et dont la génération 1 descend du front de la génération choisie (la finale par défaut). Ce départ fait partie de la configuration figée et de son empreinte.
+7. Désactiver ou supprimer (liste des campagnes, responsable scientifique ou administrateur, campagne terminée, arrêtée ou en échec) : désactivée, une campagne reste consultable mais n'est plus prise en compte (accueil, tests d'images, départ d'une nouvelle campagne, MCP) et se réactive à tout moment ; supprimée, elle disparaît définitivement avec ses générations, ses individus, son journal et les tests d'images faits avec ses individus.
 
 ## Une génération, pas à pas
 
@@ -62,7 +63,7 @@ Le premier critère atteint l'emporte ; le journal indique lequel.
 - Le tirage dépend de la graine, du numéro de campagne et du numéro de génération : une génération recalculée donne exactement le même résultat.
 - Après un redémarrage du serveur, l'orchestrateur reprend chaque campagne en cours à la génération suivante et l'annonce au journal ; rien de ce qui est écrit n'est recalculé.
 - La configuration d'une campagne ne change jamais après le lancement ; son empreinte l'identifie. Seul le budget peut être augmenté.
-- Chaque geste (lancement, pause, reprise, budget, arrêt, appel MCP) est inscrit au journal d'audit, avec son auteur et sa source.
+- Chaque geste (lancement, pause, reprise, budget, arrêt, désactivation, réactivation, suppression, appel MCP) est inscrit au journal d'audit, avec son auteur et sa source.
 
 ## Temps réel
 
@@ -74,9 +75,9 @@ Le premier critère atteint l'emporte ; le journal indique lequel.
 
 1. Importer une mammographie DICOM (écran « Images ») : le serveur ne garde que les pixels et des données techniques ; aucun en-tête identifiant, ni le nom du fichier.
 2. Choisir une campagne, une génération (la finale par défaut) et un individu de son front (le meilleur sur E-val par défaut).
-3. Lancer le test : score de l'image, temps de calcul et zones signalées s'affichent sur l'image ; le test est gardé et inscrit à l'audit.
+3. Lancer le test : score de l'image, temps de calcul et zones s'affichent sur l'image ; le test est gardé et inscrit à l'audit.
 
-Dans ce socle, le résultat est simulé de façon déterministe à partir de l'image et de l'individu, sans aucune valeur ; le parcours est prêt pour le vrai moteur.
+Quand le service d'inférence tourne, le score vient du CNN entraîné : probabilité de malignité de l'image, seuil choisi à l'entraînement et zones où il a regardé. CephaloMesh n'est pas encore branché : l'individu choisi ne change pas encore ce score. Sans ce service, le résultat est simulé de façon déterministe à partir de l'image et de l'individu, sans aucune valeur.
 
 ## Ce qui changera avec la vraie boucle
 

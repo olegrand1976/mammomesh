@@ -1,5 +1,5 @@
 # Raccourcis de développement. La production passe par docker compose (voir README).
-.PHONY: secrets up down logs test test-backend test-web test-engine e2e dev-api dev-orchestrator dev-web ca exemples banque materiel
+.PHONY: deployer secrets up down logs test test-backend test-web test-engine e2e dev-api dev-orchestrator dev-web ca exemples banque materiel
 
 secrets:
 	./scripts/init-secrets.sh
@@ -12,6 +12,10 @@ up: secrets
 materiel:
 	@profils="$$(./scripts/detecter-materiel.sh)" && echo "Profils compose : $$profils" && \
 	cd engine && python3 -m mammomesh_engine.materiel --docker "$$profils"
+
+# Tests backend, reconstruction de la pile (et du veilleur), git push. DEPLOYER_OPTS=--sans-tests|--sans-push.
+deployer:
+	./scripts/deployer.sh $(DEPLOYER_OPTS)
 
 down:
 	docker compose down

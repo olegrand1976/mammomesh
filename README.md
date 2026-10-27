@@ -66,6 +66,10 @@ Rôles : `admin`, `responsable_scientifique`, `data_manager`, `radiologue`, `lec
 
 Profils optionnels : `COMPOSE_PROFILES=obs` (Prometheus + Grafana sous `/obs/`), `backup` (sauvegarde restic quotidienne de PostgreSQL vers `BACKUP_DIR` ; restauration : [deploy/backup](deploy/backup/README.md)).
 
+### Mettre à jour après une modification
+
+`make deployer` (ou `./scripts/deployer.sh`) enchaîne trois étapes et s'arrête à la première erreur : tests du backend (`make test-backend`), reconstruction de la pile (`scripts/demarrer-pile.sh --build`) avec redémarrage du veilleur d'entraînement s'il est installé, puis `git push` (refusé si la branche est en retard sur le distant). `DEPLOYER_OPTS="--sans-tests"` ou `"--sans-push"` saute une étape.
+
 ### Redémarrage automatique
 
 - **Conteneurs** : tous ont `restart: unless-stopped` (sauf `migrate`) : Docker les relance s'ils s'arrêtent, et au démarrage de la machine s'ils tournaient.

@@ -1,0 +1,18 @@
+# Service utilisateur : pile Docker de MammoMesh au démarrage de la machine.
+# Installé par scripts/installer-services.sh (@DEPOT@ remplacé par le chemin du dépôt).
+# Ensuite, chaque conteneur redémarre seul s'il s'arrête (restart: unless-stopped dans compose.yaml).
+[Unit]
+Description=MammoMesh : pile Docker locale (docker compose up -d au démarrage)
+After=default.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=@DEPOT@
+ExecStart=@DEPOT@/scripts/demarrer-pile.sh
+TimeoutStartSec=20min
+Restart=on-failure
+RestartSec=2min
+
+[Install]
+WantedBy=default.target

@@ -39,6 +39,9 @@ func TestSansEtatDeduitDesDates(t *testing.T) {
 	if r.Statut != EnCours || r.Phase != "entrainement" || r.Epoque != 3 || len(r.Journal) != 3 {
 		t.Fatalf("en cours attendu, époque 3 et ligne incomplète ignorée : %+v", r.Resume)
 	}
+	if r.DureeEpoqueS == nil || *r.DureeEpoqueS != 592.5 {
+		t.Fatalf("durée typique (époques 2 et 3) : %v", r.DureeEpoqueS)
+	}
 	if r.MeilleureAUCSein == nil || *r.MeilleureAUCSein != 0.79 {
 		t.Fatalf("meilleure AUC : %v", r.MeilleureAUCSein)
 	}
@@ -53,10 +56,12 @@ func TestAvecEtatEtRapport(t *testing.T) {
 	rep := filepath.Join(d, "a")
 	ecrire(t, filepath.Join(rep, "journal.csv"), journal, t0)
 	ecrire(t, filepath.Join(rep, "etat.json"), `{"statut":"en_cours","phase":"entrainement","etape":"apprentissage",
-		"debut":"2026-10-27T10:00:00+00:00","maj":"2026-10-27T11:59:50+00:00","epoque":4,"epoques":15,"pas":120,"pas_par_epoque":660}`, t0)
+		"debut":"2026-10-27T10:00:00+00:00","maj":"2026-10-27T11:59:50+00:00","epoque":4,"epoques":15,"pas":120,"pas_par_epoque":660,
+		"debut_epoque":"2026-10-27T11:50:00+00:00","patience":5}`, t0)
 
 	r, _ := Lire(d, "a", t0)
-	if r.Statut != EnCours || r.Epoque != 4 || r.Epoques != 15 || r.Etape != "apprentissage" || !r.AvecEtat || len(r.Etat) == 0 {
+	if r.Statut != EnCours || r.Epoque != 4 || r.Epoques != 15 || r.Etape != "apprentissage" || !r.AvecEtat || len(r.Etat) == 0 ||
+		r.Pas != 120 || r.PasParEpoque != 660 || r.Patience != 5 || r.DebutEpoque == nil || r.DebutEpoque.Minute() != 50 {
 		t.Fatalf("état mal lu : %+v", r.Resume)
 	}
 	if r2, _ := Lire(d, "a", t0.Add(20*time.Minute)); r2.Statut != SansNouvelle {

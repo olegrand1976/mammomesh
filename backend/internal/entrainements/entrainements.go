@@ -61,6 +61,13 @@ type Resume struct {
 	AUCSeinValidation *float64   `json:"auc_sein_validation"`
 	Message           string     `json:"message,omitempty"`
 	AvecEtat          bool       `json:"avec_etat"`
+	// Pour l'estimation des temps de fin (calculée par l'interface).
+	DureeEpoqueS *float64   `json:"duree_epoque_s"` // durée typique d'une époque (la 1re, qui compile, est écartée si possible)
+	Pas          int        `json:"pas"`
+	PasParEpoque int        `json:"pas_par_epoque"`
+	DebutEpoque  *time.Time `json:"debut_epoque,omitempty"`
+	DebutPhase   *time.Time `json:"debut_phase,omitempty"`
+	Patience     int        `json:"patience,omitempty"`
 }
 
 // Detail : la page d'un entraînement.
@@ -81,6 +88,11 @@ type etatFichier struct {
 	Epoques          int        `json:"epoques"`
 	MeilleureAUCSein *float64   `json:"meilleure_auc_sein"`
 	Message          string     `json:"message"`
+	Pas              int        `json:"pas"`
+	PasParEpoque     int        `json:"pas_par_epoque"`
+	DebutEpoque      *time.Time `json:"debut_epoque"`
+	DebutPhase       *time.Time `json:"debut_phase"`
+	Patience         int        `json:"patience"`
 }
 
 type rapportFichier struct {
@@ -162,6 +174,7 @@ func lire(dossier, nom string, maintenant time.Time) (Detail, error) {
 	if len(d.Journal) > 0 {
 		d.Phase = "entrainement"
 	}
+	d.DureeEpoqueS = dureeTypique(d.Journal)
 
 	if b, mt, ok := lireFichier(rep, "etat.json"); ok {
 		var e etatFichier
@@ -169,6 +182,7 @@ func lire(dossier, nom string, maintenant time.Time) (Detail, error) {
 			d.Etat, d.AvecEtat = json.RawMessage(b), true
 			d.Statut, d.Phase, d.Etape, d.Message = e.Statut, e.Phase, e.Etape, e.Message
 			d.Debut, d.Epoques = e.Debut, e.Epoques
+			d.Pas, d.PasParEpoque, d.DebutEpoque, d.DebutPhase, d.Patience = e.Pas, e.PasParEpoque, e.DebutEpoque, e.DebutPhase, e.Patience
 			if e.Epoque > d.Epoque {
 				d.Epoque = e.Epoque
 			}
@@ -249,6 +263,29 @@ func lireJournal(b []byte) []Epoque {
 		out = append(out, e)
 	}
 	return out
+}
+
+// dureeTypique : moyenne des trois dernières époques, sans la première (compilation, chargement
+// des caches) dès qu'il y en a au moins deux.
+func dureeTypique(j []Epoque) *float64 {
+	if len(j) > 1 {
+		j = j[1:]
+	}
+	if len(j) > 3 {
+		j = j[len(j)-3:]
+	}
+	s, n := 0.0, 0
+	for _, e := range j {
+		if e.DureeS > 0 {
+			s += e.DureeS
+			n++
+		}
+	}
+	if n == 0 {
+		return nil
+	}
+	v := s / float64(n)
+	return &v
 }
 
 func nombre(s string) float64 {

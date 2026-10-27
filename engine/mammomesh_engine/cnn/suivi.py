@@ -23,21 +23,41 @@ def _maintenant() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+def lire_etat(dossier: str | Path) -> dict:
+    try:
+        return json.loads((Path(dossier) / FICHIER).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def ecrire_etat(dossier: str | Path, etat: dict) -> None:
+    """Écriture atomique (aussi utilisée par le veilleur auto.py)."""
+    d = Path(dossier)
+    d.mkdir(parents=True, exist_ok=True)
+    tmp = d / (FICHIER + ".tmp")
+    tmp.write_text(json.dumps(etat, ensure_ascii=False, indent=1), encoding="utf-8")
+    tmp.replace(d / FICHIER)
+
+
 class Suivi:
-    def __init__(self, dossier: str | Path, **infos):
+    def __init__(self, dossier: str | Path, *, reprise: bool = False, **infos):
+        """reprise=True : garde l'état existant (début, compteurs du veilleur) et compte une reprise de plus."""
         self.dossier = Path(dossier)
-        self.etat: dict = {"version": 1, "statut": "en_cours", "phase": "preparation", "debut": _maintenant(),
-                           "pid": os.getpid(), **infos}
+        ancien = lire_etat(self.dossier) if reprise else {}
+        for cle in ("statut", "message", "fin", "pid", "etape"):
+            ancien.pop(cle, None)
+        self.etat: dict = {"version": 1, "phase": "preparation", "debut": _maintenant(), **ancien,
+                           "statut": "en_cours", "pid": os.getpid(), **infos}
+        if reprise:
+            self.etat["reprises"] = int(self.etat.get("reprises", 0)) + 1
+            self.etat["derniere_reprise"] = _maintenant()
         self._derniere = 0.0
         self.ecrire()
 
     def ecrire(self) -> None:
         self.etat["maj"] = _maintenant()
         try:
-            self.dossier.mkdir(parents=True, exist_ok=True)
-            tmp = self.dossier / (FICHIER + ".tmp")
-            tmp.write_text(json.dumps(self.etat, ensure_ascii=False, indent=1), encoding="utf-8")
-            tmp.replace(self.dossier / FICHIER)
+            ecrire_etat(self.dossier, self.etat)
         except OSError:
             pass   # le suivi ne doit jamais arrêter un entraînement
         self._derniere = time.monotonic()

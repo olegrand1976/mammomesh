@@ -26,6 +26,16 @@ MOYENNE, ECART = (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)   # normalisation 
 PALIERS = ((1024, 832), (768, 624), (512, 416))
 
 
+REPRISE = "reprise.pt"
+
+
+def _ecrire_reprise(chemin: Path, contenu: dict) -> None:
+    import torch
+    tmp = chemin.with_suffix(".tmp")
+    torch.save(contenu, tmp)
+    tmp.replace(chemin)
+
+
 def creer_modele(preentraine: bool):
     import torch.nn as nn
     from torchvision.models import EfficientNet_B0_Weights, efficientnet_b0
@@ -131,7 +141,9 @@ def _lignes(images: list[Image], scores: list[float]) -> list[tuple[str, int, fl
 def entrainer(images: list[Image], cache: Path, sortie: Path, *, resolution: tuple[int, int] = PALIERS[0],
               epoques: int = 15, lot_effectif: int = 32, patience: int = 5, lr: float = 3e-4,
               preentraine: bool = True, appareil: str | None = None, compiler: bool = True,
-              sensibilite_cible: float = 0.85, graine: int = 42, journal=print, suivi: Suivi | None = None) -> dict:
+              sensibilite_cible: float = 0.85, graine: int = 42, journal=print, suivi: Suivi | None = None,
+              reprendre: bool = False) -> dict:
+    """reprendre=True : repart du point de reprise (reprise.pt) écrit à la fin de chaque époque, s'il existe."""
     import torch
     from torch.utils.data import DataLoader
 
@@ -140,6 +152,11 @@ def entrainer(images: list[Image], cache: Path, sortie: Path, *, resolution: tup
     controler_place(sortie, 200_000_000, "Modèle et journaux")   # poids (~16 Mo), copies, journaux
     sortie.mkdir(parents=True, exist_ok=True)
     suivi = suivi or SansSuivi()
+    fichier_reprise = sortie / REPRISE
+    point = torch.load(fichier_reprise, map_location="cpu", weights_only=False) if reprendre and fichier_reprise.exists() else None
+    if point:
+        resolution = tuple(point["taille"])   # même taille d'entrée qu'avant l'interruption
+        journal(f"  reprise après l'époque {point['epoque']} (meilleure AUC par sein {point['meilleur']:.3f})")
 
     suivi.phase("calibrage")
     plan = choisir_plan(resolution=resolution, lot_effectif=lot_effectif, appareil=appareil, compiler=compiler, journal=journal)
@@ -172,12 +189,28 @@ def entrainer(images: list[Image], cache: Path, sortie: Path, *, resolution: tup
                                               * 0.5 * (1 + math.cos(math.pi * min(k, total) / total)))
     sc = to.scaler(plan)
 
-    meilleur, sans_progres, historique = -1.0, 0, []
+    meilleur, sans_progres, historique, premiere = -1.0, 0, [], 1
+    if point:
+        getattr(modele, "_orig_mod", modele).load_state_dict(point["modele"])
+        opt.load_state_dict(point["opt"])
+        sched.load_state_dict(point["sched"])
+        sc.load_state_dict(point["scaler"])
+        meilleur, sans_progres, historique = point["meilleur"], point["sans_progres"], point["historique"]
+        premiere = point["epoque"] + 1
+        random.setstate(point["rng"]["python"])
+        torch.set_rng_state(point["rng"]["torch"])
+        if point["rng"].get("cuda") and torch.cuda.is_available():
+            torch.cuda.set_rng_state_all(point["rng"]["cuda"])
     poids = sortie / "modele.pt"
     with open(sortie / "journal.csv", "w", newline="", encoding="utf-8") as jf:
         jw = csv.writer(jf)
         jw.writerow(["epoque", "perte", "auc_image_ajustement", "auc_sein_ajustement", "duree_s"])
-        for ep in range(1, epoques + 1):
+        for h in historique:   # reprise : le journal est réécrit d'après le point de reprise
+            jw.writerow([h["epoque"], f"{h['perte']:.4f}", f"{h['auc_image'] or 0:.4f}", f"{h['auc_sein'] or 0:.4f}", f"{h['duree_s']:.0f}"])
+        jf.flush()
+        for ep in range(premiere, epoques + 1):
+            if sans_progres >= patience:
+                break
             t0 = time.time()
             suivi.phase("entrainement", epoque=ep, pas=0, etape="apprentissage", debut_epoque=maintenant())
             modele.train()
@@ -220,9 +253,15 @@ def entrainer(images: list[Image], cache: Path, sortie: Path, *, resolution: tup
                             "normalisation": {"moyenne": MOYENNE, "ecart": ECART}, "epoque": ep}, poids)
             else:
                 sans_progres += 1
-                if sans_progres >= patience:
-                    journal(f"  arrêt : pas de progrès depuis {patience} époques")
-                    break
+            _ecrire_reprise(fichier_reprise, {
+                "modele": getattr(modele, "_orig_mod", modele).state_dict(), "opt": opt.state_dict(),
+                "sched": sched.state_dict(), "scaler": sc.state_dict(), "epoque": ep, "meilleur": meilleur,
+                "sans_progres": sans_progres, "historique": historique, "taille": list(taille),
+                "rng": {"python": random.getstate(), "torch": torch.get_rng_state(),
+                        "cuda": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None}})
+            if sans_progres >= patience:
+                journal(f"  arrêt : pas de progrès depuis {patience} époques")
+                break
 
     # Meilleur modèle : seuil choisi en ajustement, mesures finales en validation (jamais vues avant).
     suivi.phase("evaluation", etape="seuil en ajustement, mesures en validation")
@@ -254,4 +293,5 @@ def entrainer(images: list[Image], cache: Path, sortie: Path, *, resolution: tup
         "historique": historique,
     }
     (sortie / "rapport.json").write_text(json.dumps(rapport, ensure_ascii=False, indent=2), encoding="utf-8")
+    fichier_reprise.unlink(missing_ok=True)   # entraînement fini : le point de reprise (~50 Mo) ne sert plus
     return rapport

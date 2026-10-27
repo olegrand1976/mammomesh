@@ -1,0 +1,19 @@
+# Service utilisateur : veilleur qui reprend un entraînement inachevé du CNN dès que le GPU est libre
+# (python -m mammomesh_engine.cnn.auto). Installé par scripts/installer-services.sh.
+# Arrêter le service (systemctl --user stop mammomesh-entrainement) arrête aussi l'entraînement en cours :
+# il reprendra à sa dernière époque finie au prochain démarrage du service.
+[Unit]
+Description=MammoMesh : reprise automatique des entraînements du CNN quand le GPU est libre
+After=default.target
+
+[Service]
+Type=simple
+WorkingDirectory=@DEPOT@/engine
+Environment=PYTHONUNBUFFERED=1
+ExecStart=@DEPOT@/engine/.venv/bin/python -m mammomesh_engine.cnn.auto
+Restart=always
+RestartSec=60
+Nice=5
+
+[Install]
+WantedBy=default.target

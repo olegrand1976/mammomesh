@@ -173,7 +173,10 @@ const option = computed(() => {
       <p v-if="detail.statut === 'sans_nouvelles'" class="alert">
         Aucune nouvelle depuis longtemps : l'entraînement s'est peut-être arrêté sans le signaler (machine éteinte, processus tué).
       </p>
-      <p v-if="detail.message" class="alert">{{ detail.message }}</p>
+      <p v-if="detail.message" :class="detail.statut === 'en_attente_gpu' ? 'attente' : 'alert'">{{ detail.message }}</p>
+      <p v-if="detail.statut === 'en_attente_gpu'" class="small muted">
+        Le veilleur (service mammomesh-entrainement) reprendra cet entraînement à sa dernière époque finie dès que le GPU sera libre.
+      </p>
       <p v-if="!detail.avec_etat && detail.statut === 'en_cours'" class="small muted">
         Cet entraînement a été lancé avant le suivi détaillé : il n'est mis à jour qu'à la fin de chaque époque.
       </p>
@@ -220,6 +223,7 @@ const option = computed(() => {
 .valeur { font-size: 1.3rem; font-weight: 600; }
 .plan pre { white-space: pre-wrap; font-size: 0.8rem; }
 tr.choisi td { background: var(--surface-2); }
+.attente { background: var(--accent-soft); color: var(--accent); padding: 8px 12px; border-radius: 8px; }
 .temps h3 { font-size: 1rem; margin: 12px 0 6px; }
 .temps ul { padding-left: 20px; display: grid; gap: 4px; margin: 0 0 6px; }
 section + section { margin-top: 16px; }

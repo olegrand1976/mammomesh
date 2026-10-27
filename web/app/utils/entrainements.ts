@@ -4,7 +4,7 @@ export interface EpoqueEntrainement { epoque: number; perte: number; auc_image: 
 
 export interface ResumeEntrainement {
   nom: string
-  statut: 'en_cours' | 'termine' | 'echec' | 'interrompu' | 'sans_nouvelles'
+  statut: 'en_cours' | 'termine' | 'echec' | 'interrompu' | 'sans_nouvelles' | 'en_attente_gpu'
   phase: string
   etape?: string
   debut?: string
@@ -69,9 +69,10 @@ export const statutEntrainement: Record<string, { libelle: string; classe: strin
   echec: { libelle: 'En échec', classe: 'en_echec' },
   interrompu: { libelle: 'Interrompu', classe: 'arretee' },
   sans_nouvelles: { libelle: 'Sans nouvelles', classe: 'en_pause' },
+  en_attente_gpu: { libelle: 'En attente du GPU', classe: 'en_pause' },
 }
 
-/** Finalisé : terminé, en échec ou interrompu. « Sans nouvelles » reste avec les en cours : il peut reprendre. */
+/** Finalisé : terminé, en échec ou interrompu. « Sans nouvelles » et « En attente du GPU » restent avec les en cours : ils reprendront. */
 export function estFinalise(statut: string): boolean {
   return statut === 'termine' || statut === 'echec' || statut === 'interrompu'
 }

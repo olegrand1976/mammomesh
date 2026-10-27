@@ -83,7 +83,10 @@ describe('suivi des entraînements', () => {
 
   it('chaque statut et chaque phase écrits par le moteur et l\'API ont un libellé', () => {
     const go = readFileSync(resolve(racine, '../backend/internal/entrainements/entrainements.go'), 'utf8')
-    for (const [, s] of go.matchAll(/(?:EnCours|Termine|Echec|Interrompu|SansNouvelle)\s+= "([a-z_]+)"/g)) expect(statutEntrainement[s!], s).toBeDefined()
+    for (const [, s] of go.matchAll(/(?:EnCours|Termine|Echec|Interrompu|SansNouvelle|EnAttente)\s+= "([a-z_]+)"/g)) expect(statutEntrainement[s!], s).toBeDefined()
+    const auto = readFileSync(resolve(racine, '../engine/mammomesh_engine/cnn/auto.py'), 'utf8')
+    for (const [, s] of auto.matchAll(/(?:EN_ATTENTE = |statut=)"([a-z_]+)"/g)) expect(statutEntrainement[s!], s).toBeDefined()
+    expect(estFinalise('en_attente_gpu')).toBe(false)
     const py = ['suivi.py', 'entrainement.py', '__main__.py'].map(f => readFileSync(resolve(racine, `../engine/mammomesh_engine/cnn/${f}`), 'utf8')).join('\n')
     const phases = [...py.matchAll(/phase\("([a-z_]+)"/g), ...py.matchAll(/"phase": "([a-z_]+)"/g)].map(m => m[1]!)
     expect(phases.length).toBeGreaterThan(4)

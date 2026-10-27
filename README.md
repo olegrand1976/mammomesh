@@ -58,6 +58,11 @@ Rôles : `admin`, `responsable_scientifique`, `data_manager`, `radiologue`, `lec
 
 Profils optionnels : `COMPOSE_PROFILES=obs` (Prometheus + Grafana sous `/obs/`), `backup` (sauvegarde restic quotidienne de PostgreSQL vers `BACKUP_DIR` ; restauration : [deploy/backup](deploy/backup/README.md)).
 
+### Redémarrage automatique
+
+- **Conteneurs** : tous ont `restart: unless-stopped` (sauf `migrate`) : Docker les relance s'ils s'arrêtent, et au démarrage de la machine s'ils tournaient.
+- **Pile complète au démarrage** : `./scripts/installer-services.sh` installe le service utilisateur `mammomesh-pile`, qui lance `scripts/demarrer-pile.sh` (attente de Docker, profils du matériel, `docker compose up -d`) à chaque démarrage, même après un `docker compose down`. Le script indique s'il manque `sudo systemctl enable docker.service containerd.service` ou `sudo loginctl enable-linger $USER` (démarrage sans ouvrir de session). `--retirer` désinstalle.
+
 ### Hôte
 
 - Espace disque : garder plus de 10 Gio libres. En dessous, SeaweedFS passe ses volumes en lecture seule pour protéger PostgreSQL ; au-delà de 95 % d'occupation, il l'écrit toutes les 5 s dans son journal. Les journaux des conteneurs sont bornés à 30 Mo par service.
@@ -114,6 +119,8 @@ python -m mammomesh_engine.cnn --banque ../banque                               
 - **Prétraitement** : sein orienté à gauche, recadré sur le tissu, mis en 1024 × 832 (PNG 8 bits dans `./cache/cnn`, environ 2 Go). La place libre est contrôlée avant d'écrire (`MARGE_GO`, 10 Go par défaut).
 - **Entraînement** : réglé par le plan matériel (appareil, précision, workers) ; sur GPU, le lot est mesuré par `calibrer()`, et la résolution descend (768 × 624, puis 512 × 416) si l'image entière ne tient pas. Poids ImageNet au départ (`--sans-preentrainement` pour partir de zéro), arrêt quand l'AUC par sein en ajustement ne progresse plus (`--patience`).
 - **Résultat** dans `./modeles/cnn-cmmd-AAAAMMJJ-HHMM/` : `modele.pt` (meilleure époque, seuil inclus), `journal.csv`, `rapport.json`. Le seuil est choisi en ajustement pour une sensibilité de 0,85 par sein (`--sensibilite-cible`) ; AUC, sensibilité et spécificité finales sont mesurées en validation, sur des patientes jamais vues.
+- **Reprise** : un point de reprise (`reprise.pt`, modèle, optimiseur, compteurs) est écrit à la fin de chaque époque, avec les réglages (`parametres.json`) et l'index (`index.csv`) du lancement. `python -m mammomesh_engine.cnn --reprendre modeles/cnn-cmmd-…` repart de la dernière époque finie.
+- **Relance automatique** : le service `mammomesh-entrainement` (installé par `scripts/installer-services.sh`) fait tourner `python -m mammomesh_engine.cnn.auto`. Il reprend l'entraînement inachevé (machine éteinte ou en veille, processus tué, plantage) dès que le GPU est libre : aucun calcul dessus et au moins 4,5 Go de mémoire libre, deux fois à 30 s d'intervalle (`--memoire-min`). En attendant, l'interface affiche « En attente du GPU » avec la raison. Un arrêt volontaire (Ctrl+C, ou `python -m mammomesh_engine.cnn.auto --abandonner NOM`) n'est jamais repris ; après 3 reprises sans progrès, le veilleur abandonne. Journal : `modeles/NOM.log` et `journalctl --user -u mammomesh-entrainement`.
 - **Suivi** : menu **Entraînements** de l'interface (rafraîchi toutes les 5 s) : phase, avancement, courbes d'AUC et de perte par époque, résultat final, plan matériel. L'API lit `./modeles` en lecture seule (`MODELES_DIR`, monté d'office par Docker ; en développement : `MODELES_DIR=../modeles make dev-api`). Chaque entraînement y écrit `etat.json` (phase et pas, toutes les 10 s), `journal.csv` (une ligne par époque) et `rapport.json` (à la fin). Les fichiers doivent être lisibles par tous (umask 022 par défaut), le conteneur `api` ne tourne pas sous ton compte.
 - Les poids ImageNet de torchvision viennent d'un jeu d'images sous conditions non commerciales : à réexaminer avant tout usage commercial (ou entraîner avec `--sans-preentrainement`).
 

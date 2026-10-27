@@ -7,11 +7,19 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 # Au démarrage, Docker peut ne pas être encore prêt : jusqu'à 5 minutes d'attente.
+# Un refus d'accès au socket ne se règle pas en attendant : arrêt immédiat, avec la marche à suivre.
+erreur=""
 for _ in $(seq 1 60); do
-  docker info >/dev/null 2>&1 && break
+  if erreur="$(docker info 2>&1 >/dev/null)"; then erreur=""; break; fi
+  if grep -qi "permission denied" <<<"$erreur"; then
+    echo "Accès refusé au socket Docker pour $(id -un) (groupes : $(id -Gn))." >&2
+    echo "Si ton compte vient d'être ajouté au groupe docker, le gestionnaire de services utilisateur ne le sait pas" >&2
+    echo "encore : redémarre la machine, ou « sudo systemctl restart user@$(id -u).service »." >&2
+    exit 1
+  fi
   sleep 5
 done
-docker info >/dev/null 2>&1 || { echo "Docker ne répond pas (service arrêté, ou compte hors du groupe docker)" >&2; exit 1; }
+[[ -z "$erreur" ]] || { echo "Docker ne répond pas : $erreur" >&2; exit 1; }
 
 profils="$(./scripts/detecter-materiel.sh)"
 echo "Profils compose : ${profils:-aucun}"

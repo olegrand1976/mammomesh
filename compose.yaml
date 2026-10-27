@@ -164,11 +164,15 @@ services:
       PGPASSWORD_FILE: /run/secrets/postgres_password
       RESTIC_REPOSITORY: /backup/restic
       RESTIC_PASSWORD_FILE: /run/secrets/restic_password
+      RESTIC_COPIE: ${BACKUP_COPIE:-}
       BACKUP_HOUR: ${BACKUP_HOUR:-2}
     secrets: [postgres_password, restic_password]
     volumes:
       # Disque ou NAS hors du serveur, monté sur l'hôte.
       - ${BACKUP_DIR:-./backup}:/backup
+      # Copie facultative (BACKUP_COPIE, chemin vu du conteneur sous /copie) : le dossier PARENT d'un
+      # montage à la demande, propagé (rslave) pour que le conteneur démarre même NAS injoignable.
+      - ${BACKUP_COPIE_RACINE:-./backup}:/copie:rslave
     networks: [data]
 
   prometheus:

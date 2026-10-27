@@ -4,6 +4,8 @@ Chaque jour à `BACKUP_HOUR` h (heure de Bruxelles, `TZ` pour une autre), `pg_du
 
 `BACKUP_DIR` doit être hors du serveur (disque externe, NAS monté sur l'hôte). Sans `secrets/restic_password.txt`, le dépôt est illisible : garder ce fichier ailleurs aussi.
 
+Sur une machine qui n'a pas toujours accès au NAS (portable), garder `BACKUP_DIR` en local et ajouter une copie : `BACKUP_COPIE_RACINE` est le dossier de l'hôte qui contient le montage à la demande (par exemple `/mnt/llit-nas`), `BACKUP_COPIE` le dépôt vu du conteneur (`/copie/mammomesh/backup/restic`). Après chaque sauvegarde et au démarrage, les instantanés manquants y sont copiés (`restic copy`, même rétention) ; NAS injoignable, ils le seront au passage suivant. `docker compose run --rm backup copie` force la copie.
+
 ```bash
 COMPOSE_PROFILES=backup docker compose up -d backup     # sauvegarde quotidienne
 docker compose run --rm backup une                       # une sauvegarde tout de suite
@@ -24,3 +26,5 @@ docker compose start api orchestrator
 ```
 
 `latest` peut être remplacé par l'identifiant d'un instantané de la liste.
+
+Depuis la copie (portable perdu, par exemple) : ajouter `-r /copie/mammomesh/backup/restic` après `restic` dans la commande `dump`, même mot de passe.

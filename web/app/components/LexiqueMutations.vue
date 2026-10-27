@@ -7,9 +7,9 @@ defineProps<{ ouvert?: boolean }>()
 <template>
   <details class="lexique" :open="ouvert">
     <summary>Lexique des mutations</summary>
-    <p class="small muted">Un code dit quel gène a changé et dans quel sens : ↑ relevé, ↓ abaissé, + ajouté, − retiré. Survoler un code (ou le sélectionner au clavier) affiche aussi son explication.</p>
+    <p class="small muted">Un code dit quel réglage (gène) a changé et dans quel sens : ↑ augmenté, ↓ diminué, + ajouté, − retiré. Survoler un code (ou le sélectionner au clavier) affiche aussi son explication.</p>
     <div class="table-wrap"><table>
-      <thead><tr><th>Code</th><th>Gène</th><th class="hide-sm">Rôle</th><th>Effet de la mutation</th></tr></thead>
+      <thead><tr><th>Code</th><th>Réglage (gène)</th><th class="hide-sm">À quoi il sert</th><th>Ce que change la mutation</th></tr></thead>
       <tbody>
         <tr v-for="m in mutations" :key="m.famille">
           <td><code>{{ m.famille }}</code><div class="small muted">{{ m.partie }}</div></td>

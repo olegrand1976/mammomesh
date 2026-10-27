@@ -48,6 +48,21 @@ describe('fonctionnement d\'une campagne', () => {
   })
 })
 
+describe('CNN et CephaloMesh', async () => {
+  const { partiesCouple } = await import('~/utils/couple')
+  const doc = readFileSync(resolve(racine, '../docs/cnn-et-cephalomesh.md'), 'utf8')
+  it('le document du dépôt reprend mot pour mot la page', () => {
+    for (const p of partiesCouple) {
+      expect(doc).toContain(`## ${p.titre}`)
+      for (const b of p.blocs) {
+        for (const t of [b.p, ...(b.etapes ?? []), ...(b.points ?? []), ...(b.table?.lignes.map(l => `| ${l.join(' | ')} |`) ?? [])]) {
+          if (t) expect(doc, t.slice(0, 40)).toContain(t)
+        }
+      }
+    }
+  })
+})
+
 describe('modèle mathématique et guide Images', async () => {
   const { partiesMath } = await import('~/utils/mathematique')
   const { zonesImages } = await import('~/utils/guideImages')

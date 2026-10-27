@@ -14,7 +14,7 @@ const sommaire = [...parties.map(p => ({ id: p.id, titre: p.titre })), { id: 'mu
     </section>
     <section id="mutations" class="card">
       <h2>Lexique des mutations</h2>
-      <p>Chaque individu porte la liste des mutations qui l'ont produit. Un code dit quel gène a changé et dans quel sens : ↑ relevé, ↓ abaissé, + ajouté, − retiré.</p>
+      <p>Chaque individu porte la liste des mutations qui l'ont produit. Un code dit quel réglage (gène) a changé et dans quel sens : ↑ augmenté, ↓ diminué, + ajouté, − retiré. Explications détaillées : <NuxtLink to="/suivi/documentation/mutations">Lexique des mutations</NuxtLink>.</p>
       <LexiqueMutations ouvert />
     </section>
     <p class="small muted">Formules détaillées : <NuxtLink to="/suivi/documentation/mathematiques">Modèle mathématique</NuxtLink>.</p>

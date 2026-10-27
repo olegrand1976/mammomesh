@@ -18,7 +18,7 @@ La conception complète (protocole, garde-fous, pile, déploiement) est dans la 
 | Infobulles : chaque sigle de chaque écran (CNN, AUC, E-val, DICOM, GPU…) s'explique au survol ou au clavier ; glossaire complet dans la documentation | fait |
 | Campagnes chaînées : repartir du front de la génération finale (ou d'une intermédiaire) d'une campagne finie | fait |
 | Images : import DICOM pseudonymisé, visionneuse (fenêtrage, zoom), test d'un individu au choix (génération finale par défaut) | fait, résultat **simulé** |
-| Documentation intégrée : fonctionnement, modèle mathématique (KaTeX), guides d'écran, lexique des mutations, jeux d'entraînement, glossaire, installation sur Windows 11 (avec PDF) | fait, aussi dans `docs/` |
+| Documentation intégrée : CNN et CephaloMesh expliqués simplement, fonctionnement, modèle mathématique (KaTeX), guides d'écran, lexique des mutations, jeux d'entraînement, glossaire, installation sur Windows 11 (avec PDF) | fait, aussi dans `docs/` |
 | Docker compose : Caddy, web, api, orchestrator, migrate, PostgreSQL 18, Redis 8, SeaweedFS, sauvegarde, observabilité | fait |
 | Boucle CNN + CephaloMesh | **simulée** (déterministe) : le vrai couple arrive aux jalons 1 à 3 |
 | CNN de base (EfficientNet-B0, malin ou bénin sur CMMD) | fait : entraînement sur GPU, suivi en direct et temps de fin estimés, nouvel entraînement, pause, reprise, relance et suppression depuis l'interface, reprise automatique quand le GPU est libre ; pas encore branché au test d'image |
@@ -195,6 +195,7 @@ Dans l'application : la page d'**Accueil** explique chaque menu et la différenc
 
 | Document | Dépôt |
 |---|---|
+| CNN et CephaloMesh : ce que fait chaque partie et pourquoi les combiner (sans jargon) | [docs/cnn-et-cephalomesh.md](docs/cnn-et-cephalomesh.md) |
 | Fonctionnement d'une campagne | [docs/fonctionnement-campagne.md](docs/fonctionnement-campagne.md) |
 | Modèle mathématique | [docs/modele-mathematique.md](docs/modele-mathematique.md) |
 | Guides d'écran | [Nouvelle campagne](docs/guide-nouvelle-campagne.md), [suivi d'une campagne](docs/guide-suivi-campagne.md), [Images](docs/guide-images.md) |

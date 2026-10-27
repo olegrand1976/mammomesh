@@ -21,6 +21,10 @@ for _ in $(seq 1 60); do
 done
 [[ -z "$erreur" ]] || { echo "Docker ne répond pas : $erreur" >&2; exit 1; }
 
+# Demandes de l'interface (relancer, supprimer un entraînement) : l'API, qui ne tourne pas sous ton compte,
+# doit pouvoir y écrire ; le veilleur de l'hôte les lit et les efface.
+mkdir -p modeles/.demandes && chmod 0777 modeles/.demandes
+
 profils="$(./scripts/detecter-materiel.sh)"
 echo "Profils compose : ${profils:-aucun}"
 COMPOSE_PROFILES="$profils" docker compose up -d ${1:+"$1"}

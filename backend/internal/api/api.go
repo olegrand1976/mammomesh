@@ -103,6 +103,7 @@ func (s *Server) Router() http.Handler {
 			r.Post("/api/images/{id}/tests", s.testImage)
 			r.Get("/api/entrainements", s.listEntrainements)
 			r.Get("/api/entrainements/{nom}", s.getEntrainement)
+			r.Post("/api/entrainements/{nom}/demandes", s.demanderEntrainement)
 		})
 	})
 
@@ -281,11 +282,12 @@ func (s *Server) changePassword(w http.ResponseWriter, r *http.Request) {
 func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 	u := userFrom(r.Context())
 	writeJSON(w, http.StatusOK, map[string]any{"user": u, "permissions": map[string]bool{
-		"lancer_campagnes":   auth.CanRunCampaigns(u.Role),
-		"proposer_config":    auth.CanProposeConfig(u.Role),
-		"jetons_proposition": auth.CanProposeConfig(u.Role),
-		"tester_images":      auth.CanTestImages(u.Role),
-		"purger_images":      auth.CanPurgeImages(u.Role),
+		"lancer_campagnes":    auth.CanRunCampaigns(u.Role),
+		"proposer_config":     auth.CanProposeConfig(u.Role),
+		"jetons_proposition":  auth.CanProposeConfig(u.Role),
+		"tester_images":       auth.CanTestImages(u.Role),
+		"purger_images":       auth.CanPurgeImages(u.Role),
+		"gerer_entrainements": auth.CanManageTrainings(u.Role),
 	}})
 }
 

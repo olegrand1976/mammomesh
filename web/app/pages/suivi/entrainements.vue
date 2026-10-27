@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { fr } from '~/types'
 import {
-  avancement, duree, estimer, heureFin, phaseEntrainement, repartir, statutEntrainement, vitesseObservee,
+  avancement, duree, estimer, heureFin, libelleDemande, phaseEntrainement, relance, repartir, statutEntrainement, vitesseObservee,
   type DetailEntrainement, type Releve, type ResumeEntrainement, type VueEntrainements,
 } from '~/utils/entrainements'
 
@@ -9,6 +9,9 @@ definePageMeta({ layout: 'suivi', middleware: 'auth' })
 useHead({ title: 'Entraînements · MammoMesh' })
 
 const { api } = useApi()
+const session = useSessionStore()
+const envoi = ref('')
+const info = ref('')
 const route = useRoute()
 const router = useRouter()
 const p = usePalette()
@@ -68,6 +71,28 @@ const finListe = (e: ResumeEntrainement) => {
   const r = estimer(e, maintenant.value).resteMax
   return r === null ? '—' : heureFin(maintenant.value, r)
 }
+async function demander(action: 'relancer' | 'supprimer') {
+  const d = detail.value
+  if (!d) return
+  const texte = action === 'supprimer'
+    ? `Supprimer définitivement « ${d.nom} » : modèle, journaux et résultats ?` + (d.statut === 'en_cours' ? '\n\nIl tourne : il sera d\'abord arrêté.' : '')
+    : `${relance(d).libelle} « ${d.nom} » ?\n\n${relance(d).explication}`
+  if (!window.confirm(texte)) return
+  envoi.value = action
+  try {
+    await api(`/entrainements/${encodeURIComponent(d.nom)}/demandes`, { method: 'POST', body: { action } })
+    info.value = action === 'supprimer'
+      ? `Suppression de ${d.nom} demandée : le veilleur s'en charge dans quelques secondes.`
+      : `${relance(d).libelle} ${d.nom} : demande envoyée au veilleur.`
+    if (action === 'supprimer') await router.replace({ query: { vue: vue.value } })
+    await charger()
+  } catch (e) {
+    erreur.value = (e as Error).message
+  } finally {
+    envoi.value = ''
+  }
+}
+
 const quand = (reste: number) => `dans ${duree(reste)} (vers ${heureFin(maintenant.value, reste)})`
 
 const option = computed(() => {
@@ -100,7 +125,31 @@ const option = computed(() => {
       Suivi des entraînements lancés avec <code>python -m mammomesh_engine.cnn</code>, rafraîchi toutes les 5 secondes.
       Les mesures se font sur l'ensemble d'ajustement (E-ajust) ; la validation (E-val) n'est mesurée qu'à la fin, sur des patientes jamais vues.
     </p>
+    <details class="card cnn">
+      <summary>Qu'est-ce qu'un CNN, et que montre cette page ?</summary>
+      <p>
+        Un <strong>CNN</strong> (<em>convolutional neural network</em>, réseau de neurones convolutif) est un programme qui apprend
+        à reconnaître des motifs dans des images. Ses premières couches repèrent des bords et des textures, les suivantes des
+        formes de plus en plus complexes. On ne lui écrit pas de règles : on lui montre des milliers d'exemples dont on connaît
+        la réponse, et il ajuste ses millions de paramètres pour se tromper de moins en moins.
+      </p>
+      <p>
+        Dans MammoMesh, le CNN est le <strong>regard</strong> : il lit la mammographie et donne un score ; CephaloMesh, ensuite,
+        <strong>raisonne</strong> sur ce qu'il a vu (concordance des vues, symétrie, évolution depuis l'examen précédent).
+        Le CNN entraîné ici (EfficientNet-B0, partant de poids appris sur des photos ordinaires) apprend, sur la base CMMD,
+        à dire si un sein qui porte une anomalie est plutôt <strong>malin ou bénin</strong> (prouvé par biopsie).
+      </p>
+      <ul>
+        <li><strong>Époque</strong> : un passage complet sur toutes les images d'entraînement.</li>
+        <li><strong>Perte</strong> : l'erreur moyenne pendant l'apprentissage ; elle doit baisser.</li>
+        <li><strong>AUC</strong> : de 0,5 (hasard) à 1 (parfait), la probabilité qu'un sein malin reçoive un score plus haut qu'un sein bénin.</li>
+        <li><strong>Ajustement (E-ajust)</strong> : patientes mises de côté pour suivre les progrès et choisir le seuil ;
+          <strong>validation (E-val)</strong> : patientes jamais vues, mesurées une seule fois à la fin.</li>
+      </ul>
+      <p class="small muted">Outil de recherche : aucun résultat ne sert à un diagnostic.</p>
+    </details>
     <p v-if="erreur" class="alert">{{ erreur }}</p>
+    <p v-if="info" class="attente">{{ info }}</p>
     <p v-if="!configure" class="alert">
       Le suivi n'est pas configuré : l'API doit connaître le dossier des modèles (variable <code>MODELES_DIR</code> ;
       avec Docker, le dossier <code>./modeles</code> est monté d'office).
@@ -119,7 +168,10 @@ const option = computed(() => {
         <tbody>
           <tr v-for="e in affiches" :key="e.nom" :class="{ choisi: e.nom === detail?.nom }">
             <td><a href="#" @click.prevent="router.replace({ query: { vue, nom: e.nom } })">{{ e.nom }}</a></td>
-            <td><span class="badge" :class="statut(e.statut).classe">{{ statut(e.statut).libelle }}</span></td>
+            <td>
+              <span class="badge" :class="statut(e.statut).classe">{{ statut(e.statut).libelle }}</span>
+              <div v-if="e.demande" class="small muted">{{ libelleDemande[e.demande.action] }}…</div>
+            </td>
             <td>{{ phase(e.phase) }}</td>
             <td>{{ e.epoque }}<template v-if="e.epoques"> / {{ e.epoques }}</template></td>
             <td>{{ fr(e.meilleure_auc_sein) }}</td>
@@ -136,7 +188,18 @@ const option = computed(() => {
       <div class="row titre">
         <h2>{{ detail.nom }}</h2>
         <span class="badge" :class="statut(detail.statut).classe">{{ statut(detail.statut).libelle }}</span>
+        <div class="spacer" />
+        <template v-if="session.permissions?.gerer_entrainements">
+          <button class="btn" :disabled="!relance(detail).possible || !!detail.demande || !!envoi" :title="relance(detail).explication"
+            @click="demander('relancer')">{{ envoi === 'relancer' ? 'Envoi…' : relance(detail).libelle }}</button>
+          <button class="btn btn-danger" :disabled="!!detail.demande || !!envoi" title="Effacer le modèle, les journaux et les résultats"
+            @click="demander('supprimer')">{{ envoi === 'supprimer' ? 'Envoi…' : 'Supprimer' }}</button>
+        </template>
       </div>
+      <p v-if="detail.demande" class="attente">
+        {{ libelleDemande[detail.demande.action] }} par {{ detail.demande.par }} le {{ date(detail.demande.date) }} :
+        le veilleur (service mammomesh-entrainement) s'en charge dans quelques secondes. S'il ne tourne pas, rien ne se passera.
+      </p>
       <p class="phase">
         <strong>{{ phase(detail.phase) }}</strong><template v-if="detail.etape"> · {{ detail.etape }}</template>
         <template v-if="detail.epoques"> · époque {{ detail.epoque }} / {{ detail.epoques }}</template>
@@ -223,6 +286,9 @@ const option = computed(() => {
 .valeur { font-size: 1.3rem; font-weight: 600; }
 .plan pre { white-space: pre-wrap; font-size: 0.8rem; }
 tr.choisi td { background: var(--surface-2); }
+.cnn summary { cursor: pointer; font-weight: 600; }
+.cnn p, .cnn ul { margin: 10px 0 0; }
+.cnn ul { padding-left: 20px; display: grid; gap: 4px; }
 .attente { background: var(--accent-soft); color: var(--accent); padding: 8px 12px; border-radius: 8px; }
 .temps h3 { font-size: 1rem; margin: 12px 0 6px; }
 .temps ul { padding-left: 20px; display: grid; gap: 4px; margin: 0 0 6px; }

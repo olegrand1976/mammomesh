@@ -35,6 +35,9 @@ func CanProposeConfig(role string) bool {
 // CanTestImages : importer des images et y tester des individus (tous sauf le lecteur).
 func CanTestImages(role string) bool { return ValidRole(role) && role != RoleReader }
 
+// CanManageTrainings : relancer ou supprimer un entraînement du CNN.
+func CanManageTrainings(role string) bool { return role == RoleAdmin || role == RoleScientist }
+
 // CanPurgeImages : supprimer une image et ses tests.
 func CanPurgeImages(role string) bool { return role == RoleAdmin || role == RoleDataManager }
 

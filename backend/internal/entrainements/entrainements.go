@@ -24,6 +24,7 @@ const (
 	Echec        = "echec"
 	Interrompu   = "interrompu"
 	SansNouvelle = "sans_nouvelles"
+	EnAttente    = "en_attente_gpu" // écrit par le veilleur (mammomesh_engine.cnn.auto) toutes les minutes
 )
 
 // Délais au-delà desquels un entraînement « en cours » est dit sans nouvelles : etat.json est
@@ -219,7 +220,7 @@ func lire(dossier, nom string, maintenant time.Time) (Detail, error) {
 	}
 	m := derniere.UTC()
 	d.Maj = &m
-	if d.Statut == EnCours {
+	if d.Statut == EnCours || d.Statut == EnAttente {
 		silence := SilenceSansEtat
 		if d.AvecEtat {
 			silence = SilenceAvecEtat

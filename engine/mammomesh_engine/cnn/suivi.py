@@ -48,7 +48,7 @@ class Suivi:
             ancien.pop(cle, None)
         self.etat: dict = {"version": 1, "phase": "preparation", "debut": _maintenant(), **ancien,
                            "statut": "en_cours", "pid": os.getpid(), **infos}
-        if reprise:
+        if reprise and not self.etat.pop("file_attente", False):
             self.etat["reprises"] = int(self.etat.get("reprises", 0)) + 1
             self.etat["derniere_reprise"] = _maintenant()
         self._derniere = 0.0

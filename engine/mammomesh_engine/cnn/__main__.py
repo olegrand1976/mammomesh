@@ -43,7 +43,7 @@ def _taille(s: str) -> tuple[int, int]:
     return h, w
 
 
-def main(argv: list[str] | None = None) -> int:
+def analyseur() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="mammomesh_engine.cnn", description=__doc__)
     ap.add_argument("--banque", type=Path, default=Path(os.environ.get("BANQUE_DIR", DEPOT / "banque")),
                     help="dossier de la banque (contient tcia/CMMD) ; défaut : $BANQUE_DIR ou ./banque")
@@ -63,7 +63,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--jusqua", choices=["index", "pretraitement"], help="s'arrêter après cette étape")
     ap.add_argument("--reprendre", type=Path, metavar="DOSSIER",
                     help="reprendre un entraînement interrompu (mêmes réglages, depuis la dernière époque finie)")
-    a = ap.parse_args(argv)
+    return ap
+
+
+def main(argv: list[str] | None = None) -> int:
+    a = analyseur().parse_args(argv)
     if a.reprendre:
         try:
             a = _reglages_de(a.reprendre)

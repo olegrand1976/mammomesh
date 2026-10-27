@@ -76,6 +76,8 @@ services:
       MODELES_DIR: /modeles
     volumes:
       - ${MODELES_DIR_HOTE:-./modeles}:/modeles:ro
+      # Seule écriture : les demandes (relancer, supprimer) que le veilleur de l'hôte exécute.
+      - ${MODELES_DIR_HOTE:-./modeles}/.demandes:/modeles/.demandes
     healthcheck:
       test: ["CMD", "/usr/local/bin/mammomesh", "healthcheck"]
       interval: 10s

@@ -41,4 +41,7 @@ banque/
 # modeles/ existe toujours (.gitkeep) : sinon Docker le créerait au nom de root et l'entraînement ne pourrait plus y écrire.
 /modeles/*
 !/modeles/.gitkeep
+!/modeles/.demandes/
+/modeles/.demandes/*
+!/modeles/.demandes/.gitkeep
 engine/.venv/

@@ -212,6 +212,8 @@ test('documentation : fonctionnement, modèle mathématique, guides, lexique', a
   await expect(page.getByRole('heading', { name: 'Entraînements du CNN' })).toBeVisible()
   await expect(page.getByRole('link', { name: /En cours/ })).toBeVisible()
   await expect(page.getByRole('link', { name: /Finalisés/ })).toBeVisible()
+  await page.getByText('Qu\'est-ce qu\'un CNN').click()
+  await expect(page.getByText(/réseau de neurones convolutif/)).toBeVisible()
   await page.goto('/suivi/fonctionnement') // ancienne adresse
   await expect(page).toHaveURL(/\/suivi\/documentation\/fonctionnement$/)
 })

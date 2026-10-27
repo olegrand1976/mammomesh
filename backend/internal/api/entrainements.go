@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/olegrand1976/mammomesh/backend/internal/auth"
 	"github.com/olegrand1976/mammomesh/backend/internal/entrainements"
 )
 
@@ -41,4 +42,40 @@ func (s *Server) getEntrainement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"entrainement": d})
+}
+
+// demanderEntrainement dépose une demande (relancer, supprimer) que le veilleur de l'hôte exécutera.
+func (s *Server) demanderEntrainement(w http.ResponseWriter, r *http.Request) {
+	u := userFrom(r.Context())
+	if !auth.CanManageTrainings(u.Role) {
+		writeError(w, http.StatusForbidden, "rôle insuffisant")
+		return
+	}
+	if s.cfg.ModelesDir == "" {
+		writeError(w, http.StatusNotFound, "suivi des entraînements non configuré (MODELES_DIR)")
+		return
+	}
+	var in struct {
+		Action string `json:"action"`
+	}
+	if !readJSON(w, r, &in) {
+		return
+	}
+	nom := chi.URLParam(r, "nom")
+	dem, err := entrainements.Demander(s.cfg.ModelesDir, nom, in.Action, u.Username, time.Now())
+	switch {
+	case errors.Is(err, entrainements.ErrIntrouvable):
+		writeError(w, http.StatusNotFound, "introuvable")
+	case errors.Is(err, entrainements.ErrActionInconnue):
+		writeError(w, http.StatusBadRequest, err.Error())
+	case errors.Is(err, entrainements.ErrEnCours), errors.Is(err, entrainements.ErrDejaDemande):
+		writeError(w, http.StatusConflict, err.Error())
+	case errors.Is(err, entrainements.ErrDemandesFermees):
+		writeError(w, http.StatusServiceUnavailable, err.Error())
+	case err != nil:
+		s.fail(w, err)
+	default:
+		s.st.Audit(r.Context(), u.ID, "interface", "entrainement."+dem.Action, map[string]any{"entrainement": nom})
+		writeJSON(w, http.StatusAccepted, map[string]any{"demande": dem})
+	}
 }

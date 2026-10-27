@@ -21,6 +21,8 @@ export interface ResumeEntrainement {
   debut_epoque?: string
   debut_phase?: string
   patience?: number
+  avec_parametres?: boolean
+  demande?: { action: 'relancer' | 'supprimer'; par: string; date: string }
 }
 
 export interface EtatEntrainement {
@@ -118,6 +120,27 @@ export function duree(secondes: number | null | undefined): string {
   const m = Math.round(s / 60)
   if (m < 60) return `${m} min`
   return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`
+}
+
+// ---------- Relancer, supprimer ----------
+
+/** Libellé et explication du bouton « Relancer » selon ce que le veilleur fera. */
+export function relance(e: Pick<ResumeEntrainement, 'statut' | 'avec_parametres'>): { possible: boolean; libelle: string; explication: string } {
+  if (e.statut === 'en_cours') return { possible: false, libelle: 'Relancer', explication: 'Il tourne déjà.' }
+  if (e.avec_parametres && e.statut !== 'termine') {
+    return { possible: true, libelle: 'Reprendre', explication: 'Il reprendra à sa dernière époque finie, avec les mêmes réglages, dès que le GPU sera libre.' }
+  }
+  return {
+    possible: true, libelle: 'Relancer',
+    explication: e.avec_parametres
+      ? 'Un nouvel entraînement, avec les mêmes réglages, partira dès que le GPU sera libre. Celui-ci reste dans les finalisés.'
+      : 'Cet entraînement ne peut pas reprendre où il s\'est arrêté (lancé avant les points de reprise) : un nouvel entraînement, avec les mêmes réglages, partira de zéro dès que le GPU sera libre.',
+  }
+}
+
+export const libelleDemande: Record<string, string> = {
+  relancer: 'Relance demandée',
+  supprimer: 'Suppression demandée',
 }
 
 // ---------- Estimation des temps de fin ----------

@@ -14,6 +14,7 @@ export interface Permissions {
   jetons_proposition: boolean
   tester_images: boolean
   purger_images: boolean
+  gerer_entrainements: boolean
 }
 
 /** Métadonnées techniques d'une image importée (aucune donnée patient). */

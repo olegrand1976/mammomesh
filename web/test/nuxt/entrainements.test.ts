@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { avancement, duree, dureeMoyenneEpoque, estFinalise, estimer, heureFin, phaseEntrainement, repartir, statutEntrainement, vitesseObservee, type ResumeEntrainement } from '~/utils/entrainements'
+import { avancement, duree, dureeMoyenneEpoque, estFinalise, estimer, heureFin, libelleDemande, phaseEntrainement, relance, repartir, statutEntrainement, vitesseObservee, type ResumeEntrainement } from '~/utils/entrainements'
 
 const racine = resolve(__dirname, '../..')
 
@@ -70,6 +70,25 @@ describe('suivi des entraînements', () => {
       expect(heureFin(T, 0)).toMatch(/\d{2}:\d{2}/)
       expect(heureFin(T, 3 * 86400)).toMatch(/^\S+ \d{2}:\d{2}$/)
     })
+  })
+
+  it('relancer : reprise exacte, nouvel entraînement, ou impossible', () => {
+    expect(relance({ statut: 'en_cours', avec_parametres: true }).possible).toBe(false)
+    expect(relance({ statut: 'interrompu', avec_parametres: true }).libelle).toBe('Reprendre')
+    expect(relance({ statut: 'sans_nouvelles', avec_parametres: true }).libelle).toBe('Reprendre')
+    expect(relance({ statut: 'termine', avec_parametres: true })).toMatchObject({ possible: true, libelle: 'Relancer' })
+    expect(relance({ statut: 'sans_nouvelles', avec_parametres: false }).explication).toMatch(/partira de zéro/)
+  })
+
+  it('chaque action de l\'API et du veilleur a un libellé', () => {
+    const go = readFileSync(resolve(racine, '../backend/internal/entrainements/demandes.go'), 'utf8')
+    const actions = [...go.matchAll(/(?:Relancer|Supprimer)\s+= "([a-z]+)"/g)].map(m => m[1]!)
+    expect(actions).toEqual(['relancer', 'supprimer'])
+    const auto = readFileSync(resolve(racine, '../engine/mammomesh_engine/cnn/auto.py'), 'utf8')
+    for (const a of actions) {
+      expect(libelleDemande[a], a).toBeDefined()
+      expect(auto, a).toContain(`action == "${a}"`)
+    }
   })
 
   it('durées', () => {

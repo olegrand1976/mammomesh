@@ -68,6 +68,16 @@ func TestAvecEtatEtRapport(t *testing.T) {
 		t.Fatalf("15 min sans mise à jour d'etat.json : %s", r2.Statut)
 	}
 
+	ecrire(t, filepath.Join(rep, "etat.json"), `{"statut":"en_attente_gpu","phase":"entrainement","message":"En attente du GPU : occupé",
+		"maj":"2026-10-27T11:59:00+00:00","epoque":4,"epoques":15}`, t0)
+	if r, _ = Lire(d, "a", t0); r.Statut != EnAttente || r.Message == "" {
+		t.Fatalf("en attente du GPU : %+v", r.Resume)
+	}
+	if r, _ = Lire(d, "a", t0.Add(time.Hour)); r.Statut != SansNouvelle {
+		t.Fatalf("veilleur muet depuis 1 h : %s", r.Statut)
+	}
+	ecrire(t, filepath.Join(rep, "etat.json"), `{"statut":"en_cours","phase":"entrainement","maj":"2026-10-27T11:59:50+00:00"}`, t0)
+
 	ecrire(t, filepath.Join(rep, "rapport.json"), `{"validation":{"auc_sein":0.81},"reglages":{"epoques_max":15}}`, t0)
 	r, _ = Lire(d, "a", t0.Add(24*time.Hour))
 	if r.Statut != Termine || r.Phase != "termine" || r.Etape != "" || r.AUCSeinValidation == nil || *r.AUCSeinValidation != 0.81 || len(r.Rapport) == 0 {

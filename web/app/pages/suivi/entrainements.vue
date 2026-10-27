@@ -2,7 +2,7 @@
 import { fr } from '~/types'
 import {
   avancement, duree, estimer, heureFin, libelleDemande, phaseEntrainement, relance, repartir, statutEntrainement, vitesseObservee,
-  aideReglages, type DemandeNouveau, type DetailEntrainement, type ReglagesEntrainement, type Releve, type ResumeEntrainement, type VueEntrainements,
+  aideReglages, pausePossible, type DemandeNouveau, type DetailEntrainement, type ReglagesEntrainement, type Releve, type ResumeEntrainement, type VueEntrainements,
 } from '~/utils/entrainements'
 
 definePageMeta({ layout: 'suivi', middleware: 'auth' })
@@ -101,19 +101,25 @@ async function lancerNouveau() {
   }
 }
 
-async function demander(action: 'relancer' | 'supprimer') {
+async function demander(action: 'relancer' | 'supprimer' | 'pause', mode?: 'fin_epoque' | 'maintenant') {
   const d = detail.value
   if (!d) return
   const texte = action === 'supprimer'
     ? `Supprimer définitivement « ${d.nom} » : modèle, journaux et résultats ?` + (d.statut === 'en_cours' ? '\n\nIl tourne : il sera d\'abord arrêté.' : '')
-    : `${relance(d).libelle} « ${d.nom} » ?\n\n${relance(d).explication}`
+    : action === 'pause'
+      ? (mode === 'maintenant'
+          ? `Mettre « ${d.nom} » en pause tout de suite ?\n\nL'époque en cours (${d.epoque}) sera perdue et refaite à la reprise.`
+          : `Mettre « ${d.nom} » en pause à la fin de l'époque en cours (${d.epoque}) ?\n\nRien n'est perdu ; le GPU est libéré ensuite.`)
+      : `${relance(d).libelle} « ${d.nom} » ?\n\n${relance(d).explication}`
   if (!window.confirm(texte)) return
   envoi.value = action
   try {
-    await api(`/entrainements/${encodeURIComponent(d.nom)}/demandes`, { method: 'POST', body: { action } })
+    await api(`/entrainements/${encodeURIComponent(d.nom)}/demandes`, { method: 'POST', body: mode ? { action, mode } : { action } })
     info.value = action === 'supprimer'
       ? `Suppression de ${d.nom} demandée : le veilleur s'en charge dans quelques secondes.`
-      : `${relance(d).libelle} ${d.nom} : demande envoyée au veilleur.`
+      : action === 'pause'
+        ? `Pause de ${d.nom} demandée${mode === 'maintenant' ? ' (immédiate)' : ' (en fin d\'époque)'}.`
+        : `${relance(d).libelle} ${d.nom} : demande envoyée au veilleur.`
     if (action === 'supprimer') await router.replace({ query: { vue: vue.value } })
     await charger()
   } catch (e) {
@@ -259,12 +265,27 @@ const option = computed(() => {
         <span class="badge" :class="statut(detail.statut).classe">{{ statut(detail.statut).libelle }}</span>
         <div class="spacer" />
         <template v-if="session.permissions?.gerer_entrainements">
-          <button class="btn" :disabled="!relance(detail).possible || !!detail.demande || !!envoi" :title="relance(detail).explication"
+          <details v-if="detail.statut === 'en_cours' || detail.statut === 'en_attente_gpu'" class="menu-pause">
+            <summary class="btn" :title="pausePossible(detail).explication">{{ envoi === 'pause' ? 'Envoi…' : 'Pause' }}</summary>
+            <div class="card choix">
+              <template v-if="pausePossible(detail).possible && !detail.demande && !envoi">
+                <button class="btn" @click="demander('pause', 'fin_epoque')">À la fin de l'époque en cours</button>
+                <small class="muted">Rien n'est perdu.</small>
+                <button class="btn" @click="demander('pause', 'maintenant')">Tout de suite</button>
+                <small class="muted">L'époque en cours sera refaite à la reprise.</small>
+              </template>
+              <small v-else class="muted">{{ detail.demande ? 'Une demande est déjà en attente.' : pausePossible(detail).explication }}</small>
+            </div>
+          </details>
+          <button v-else class="btn" :disabled="!relance(detail).possible || !!detail.demande || !!envoi" :title="relance(detail).explication"
             @click="demander('relancer')">{{ envoi === 'relancer' ? 'Envoi…' : relance(detail).libelle }}</button>
           <button class="btn btn-danger" :disabled="!!detail.demande || !!envoi" title="Effacer le modèle, les journaux et les résultats"
             @click="demander('supprimer')">{{ envoi === 'supprimer' ? 'Envoi…' : 'Supprimer' }}</button>
         </template>
       </div>
+      <p v-if="detail.pause_demandee" class="attente">
+        Pause demandée : l'entraînement s'arrêtera à la fin de l'époque {{ detail.epoque }}, puis attendra « Reprendre ».
+      </p>
       <p v-if="detail.demande" class="attente">
         {{ libelleDemande[detail.demande.action] }} par {{ detail.demande.par }} le {{ date(detail.demande.date) }} :
         le veilleur (service mammomesh-entrainement) s'en charge dans quelques secondes. S'il ne tourne pas, rien ne se passera.
@@ -361,6 +382,11 @@ tr.choisi td { background: var(--surface-2); }
 .champs label > span { font-weight: 600; font-size: 0.9rem; }
 .champs .case > span { font-weight: 500; }
 .actions { gap: 8px; }
+.menu-pause { position: relative; }
+.menu-pause > summary { list-style: none; }
+.menu-pause > summary::-webkit-details-marker { display: none; }
+.choix { position: absolute; right: 0; top: calc(100% + 4px); z-index: 5; display: grid; gap: 4px; min-width: 240px; }
+.choix small { margin: -2px 0 6px; }
 .cnn summary { cursor: pointer; font-weight: 600; }
 .cnn p, .cnn ul { margin: 10px 0 0; }
 .cnn ul { padding-left: 20px; display: grid; gap: 4px; }

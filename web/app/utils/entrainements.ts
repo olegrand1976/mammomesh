@@ -4,7 +4,7 @@ export interface EpoqueEntrainement { epoque: number; perte: number; auc_image: 
 
 export interface ResumeEntrainement {
   nom: string
-  statut: 'en_cours' | 'termine' | 'echec' | 'interrompu' | 'sans_nouvelles' | 'en_attente_gpu'
+  statut: 'en_cours' | 'termine' | 'echec' | 'interrompu' | 'sans_nouvelles' | 'en_attente_gpu' | 'en_pause'
   phase: string
   etape?: string
   debut?: string
@@ -22,7 +22,8 @@ export interface ResumeEntrainement {
   debut_phase?: string
   patience?: number
   avec_parametres?: boolean
-  demande?: { action: 'relancer' | 'supprimer'; par: string; date: string }
+  demande?: { action: 'relancer' | 'supprimer' | 'pause'; mode?: string; par: string; date: string }
+  pause_demandee?: boolean
 }
 
 export interface EtatEntrainement {
@@ -72,9 +73,10 @@ export const statutEntrainement: Record<string, { libelle: string; classe: strin
   interrompu: { libelle: 'Interrompu', classe: 'arretee' },
   sans_nouvelles: { libelle: 'Sans nouvelles', classe: 'en_pause' },
   en_attente_gpu: { libelle: 'En attente du GPU', classe: 'en_pause' },
+  en_pause: { libelle: 'En pause', classe: 'en_pause' },
 }
 
-/** Finalisé : terminé, en échec ou interrompu. « Sans nouvelles » et « En attente du GPU » restent avec les en cours : ils reprendront. */
+/** Finalisé : terminé, en échec ou interrompu. « Sans nouvelles », « En attente du GPU » et « En pause » restent avec les en cours. */
 export function estFinalise(statut: string): boolean {
   return statut === 'termine' || statut === 'echec' || statut === 'interrompu'
 }
@@ -168,6 +170,15 @@ export function relance(e: Pick<ResumeEntrainement, 'statut' | 'avec_parametres'
 export const libelleDemande: Record<string, string> = {
   relancer: 'Relance demandée',
   supprimer: 'Suppression demandée',
+  pause: 'Pause demandée',
+}
+
+/** Pause possible : en cours ou en attente du GPU, avec un point de reprise (sinon la pause perdrait tout). */
+export function pausePossible(e: Pick<ResumeEntrainement, 'statut' | 'avec_parametres' | 'pause_demandee'>): { possible: boolean; explication: string } {
+  if (e.statut !== 'en_cours' && e.statut !== 'en_attente_gpu') return { possible: false, explication: 'Seul un entraînement en cours ou en attente du GPU se met en pause.' }
+  if (!e.avec_parametres) return { possible: false, explication: 'Lancé avant les points de reprise : une pause le perdrait.' }
+  if (e.pause_demandee) return { possible: false, explication: 'Pause déjà demandée pour la fin de l\'époque.' }
+  return { possible: true, explication: 'Libère le GPU ; « Reprendre » le relance plus tard, à partir de sa dernière époque finie.' }
 }
 
 // ---------- Estimation des temps de fin ----------

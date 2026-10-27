@@ -27,6 +27,11 @@ PALIERS = ((1024, 832), (768, 624), (512, 416))
 
 
 REPRISE = "reprise.pt"
+PAUSE = "pause"   # fichier déposé par le veilleur : s'arrêter à la fin de l'époque en cours
+
+
+class PauseDemandee(Exception):
+    """Pause demandée : le point de reprise de l'époque qui vient de finir est écrit."""
 
 
 def _ecrire_reprise(chemin: Path, contenu: dict) -> None:
@@ -152,6 +157,7 @@ def entrainer(images: list[Image], cache: Path, sortie: Path, *, resolution: tup
     controler_place(sortie, 200_000_000, "Modèle et journaux")   # poids (~16 Mo), copies, journaux
     sortie.mkdir(parents=True, exist_ok=True)
     suivi = suivi or SansSuivi()
+    (sortie / PAUSE).unlink(missing_ok=True)   # une pause ancienne ne vaut pas pour ce départ
     fichier_reprise = sortie / REPRISE
     point = torch.load(fichier_reprise, map_location="cpu", weights_only=False) if reprendre and fichier_reprise.exists() else None
     if point:
@@ -262,6 +268,10 @@ def entrainer(images: list[Image], cache: Path, sortie: Path, *, resolution: tup
             if sans_progres >= patience:
                 journal(f"  arrêt : pas de progrès depuis {patience} époques")
                 break
+            if (sortie / PAUSE).exists() and ep < epoques:
+                (sortie / PAUSE).unlink(missing_ok=True)
+                journal(f"  pause demandée : arrêt après l'époque {ep}, point de reprise écrit")
+                raise PauseDemandee(ep)
 
     # Meilleur modèle : seuil choisi en ajustement, mesures finales en validation (jamais vues avant).
     suivi.phase("evaluation", etape="seuil en ajustement, mesures en validation")

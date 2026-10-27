@@ -170,6 +170,36 @@ class DemandesTest(unittest.TestCase):
         self.assertIn("Banque introuvable", e["message"])
         self.assertEqual(auto.a_reprendre(self.r, vivant=lambda _: False), [])
 
+    def test_pause(self):
+        attente = self.entrainement("cnn-cmmd-6", {"statut": auto.EN_ATTENTE, "pid": 999999999}, parametres={})
+        (self.r / auto.DEMANDES / "1-pause.json").write_text(json.dumps({"nom": "cnn-cmmd-6", "action": "pause", "par": "marie"}))
+        self.v.demandes()
+        self.assertEqual(lire_etat(attente)["statut"], auto.EN_PAUSE)
+        self.assertEqual(auto.a_reprendre(self.r, vivant=lambda _: False), [])
+
+        # En cours : pause en fin d'époque = fichier « pause » lu par l'entraînement.
+        actif = self.entrainement("cnn-cmmd-7", {"statut": "en_cours", "pid": 4242, "epoque": 3}, parametres={})
+        ancien = auto.processus_vivant
+        auto.processus_vivant = lambda pid: pid == 4242
+        try:
+            self.v.pause(actif, "marie", "fin_epoque")
+        finally:
+            auto.processus_vivant = ancien
+        self.assertTrue((actif / auto.PAUSE).exists())
+        self.assertEqual(lire_etat(actif)["statut"], "en_cours")
+
+        # Reprendre : la pause est levée, l'entraînement repart quand le GPU est libre.
+        self.v.relancer(attente, "paul")
+        self.assertEqual(lire_etat(attente)["statut"], auto.EN_ATTENTE)
+        (attente / auto.PAUSE).write_text("x")
+        self.v.relancer(attente, "paul")
+        self.assertFalse((attente / auto.PAUSE).exists())
+
+    def test_pause_ignoree_si_fini(self):
+        d = self.entrainement("cnn-cmmd-8", {"statut": "termine"}, parametres={}, rapport=True)
+        self.v.pause(d, "marie", "maintenant")
+        self.assertEqual(lire_etat(d)["statut"], "termine")
+
     def test_demandes_invalides(self):
         self.demander("../etc", "supprimer")
         self.demander("absent", "relancer", 2)

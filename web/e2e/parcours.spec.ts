@@ -39,7 +39,14 @@ test('premier accès : changement imposé du mot de passe par défaut', async ({
   await enregistrer.click()
 
   await expect(page).toHaveURL(/\/suivi$/)
-  await expect(page.getByRole('heading', { name: 'Campagnes' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Accueil', level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Campagne ou entraînement ?' })).toBeVisible()
+  for (const menu of ['Campagnes', 'Nouvelle campagne', 'Entraînements', 'Images', 'Jetons MCP', 'Documentation', 'Mon compte']) {
+    await expect(page.getByRole('heading', { name: menu, level: 3 })).toBeVisible()
+  }
+  await page.getByRole('link', { name: 'Campagnes', exact: true }).first().click()
+  await expect(page).toHaveURL(/\/suivi\/campagnes$/)
+  await expect(page.getByRole('heading', { name: 'Campagnes', level: 1 })).toBeVisible()
 })
 
 test('campagne lancée depuis l\'interface et suivie en direct', async ({ page }) => {

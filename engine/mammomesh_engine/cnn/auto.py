@@ -36,6 +36,8 @@ DEPOT = Path(__file__).resolve().parents[3]
 MOTEUR = DEPOT / "engine"
 TENTATIVES_MAX = 3
 EN_ATTENTE = "en_attente_gpu"
+EN_PAUSE = "en_pause"
+PAUSE = "pause"   # même nom que entrainement.PAUSE (sans importer PyTorch ici)
 DEMANDES = ".demandes"
 NOM_VALIDE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 STABILITE_S = 30          # le GPU doit rester libre ce temps-là avant un départ
@@ -89,7 +91,7 @@ def a_reprendre(modeles: Path, *, vivant=processus_vivant) -> list[Path]:
         if not (d / "parametres.json").exists() or (d / "rapport.json").exists():
             continue
         e = lire_etat(d)
-        if e.get("statut") in ("termine", "interrompu") or vivant(e.get("pid")):
+        if e.get("statut") in ("termine", "interrompu", EN_PAUSE) or vivant(e.get("pid")):
             continue
         if e.get("statut") == "echec" and int(e.get("tentatives_auto", 0)) >= TENTATIVES_MAX:
             continue
@@ -207,6 +209,8 @@ class Veilleur:
                 self.supprimer(d, par)
             elif action == "relancer":
                 self.relancer(d, par)
+            elif action == "pause":
+                self.pause(d, par, dem.get("mode") or "fin_epoque")
             else:
                 self.journal(f"demande ignorée ({f.name}) : action inconnue")
             f.unlink(missing_ok=True)
@@ -243,8 +247,33 @@ class Veilleur:
         self.attente_signalee.pop(d.name, None)
         self.journal(f"{d.name} supprimé (demande de {par})")
 
+    def pause(self, d: Path, par: str, mode: str) -> None:
+        """fin_epoque : l'entraînement s'arrête après l'époque en cours (rien de perdu) ;
+        maintenant : arrêt immédiat, l'époque en cours sera refaite à la reprise."""
+        e = lire_etat(d)
+        if e.get("statut") in ("termine", "interrompu", EN_PAUSE) or (d / "rapport.json").exists():
+            self.journal(f"pause de {d.name} ignorée : statut {e.get('statut')}")
+            return
+        tourne = (self.courant and self.courant[1] == d) or processus_vivant(e.get("pid"))
+        if tourne and mode == "fin_epoque":
+            (d / PAUSE).write_text(par, encoding="utf-8")
+            self.journal(f"{d.name} : pause en fin d'époque demandée par {par}")
+            return
+        if tourne:
+            self._arreter(d)
+            epoque = int(lire_etat(d).get("epoque", 0))
+            message = (f"Mis en pause immédiatement par {par} pendant l'époque {epoque} : "
+                       f"« Reprendre » refera cette époque depuis le début")
+        else:
+            message = f"Mis en pause par {par} avant son départ"
+        (d / PAUSE).unlink(missing_ok=True)
+        _maj(d, statut=EN_PAUSE, message=message, fin=maintenant())
+        self.attente_signalee.pop(d.name, None)
+        self.journal(f"{d.name} : {message}")
+
     def relancer(self, d: Path, par: str) -> None:
         e = lire_etat(d)
+        (d / PAUSE).unlink(missing_ok=True)
         if (self.courant and self.courant[1] == d) or processus_vivant(e.get("pid")):
             self.journal(f"relance de {d.name} ignorée : il tourne déjà")
             return

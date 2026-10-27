@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { aideReglages, avancement, duree, dureeMoyenneEpoque, estFinalise, estimer, heureFin, libelleDemande, phaseEntrainement, relance, repartir, statutEntrainement, vitesseObservee, type ResumeEntrainement } from '~/utils/entrainements'
+import { aideReglages, pausePossible, avancement, duree, dureeMoyenneEpoque, estFinalise, estimer, heureFin, libelleDemande, phaseEntrainement, relance, repartir, statutEntrainement, vitesseObservee, type ResumeEntrainement } from '~/utils/entrainements'
 
 const racine = resolve(__dirname, '../..')
 
@@ -82,8 +82,8 @@ describe('suivi des entraînements', () => {
 
   it('chaque action de l\'API et du veilleur a un libellé', () => {
     const go = readFileSync(resolve(racine, '../backend/internal/entrainements/demandes.go'), 'utf8')
-    const actions = [...go.matchAll(/(?:Relancer|Supprimer)\s+= "([a-z]+)"/g)].map(m => m[1]!)
-    expect(actions).toEqual(['relancer', 'supprimer'])
+    const actions = [...go.matchAll(/(?:Relancer|Supprimer|Pause)\s+= "([a-z]+)"/g)].map(m => m[1]!)
+    expect(actions).toEqual(['relancer', 'supprimer', 'pause'])
     const auto = readFileSync(resolve(racine, '../engine/mammomesh_engine/cnn/auto.py'), 'utf8')
     for (const a of actions) {
       expect(libelleDemande[a], a).toBeDefined()
@@ -102,6 +102,16 @@ describe('suivi des entraînements', () => {
     expect(auto).toContain('action == "nouveau"')
   })
 
+  it('pause : seulement en cours ou en attente, avec un point de reprise', () => {
+    expect(pausePossible({ statut: 'en_cours', avec_parametres: true }).possible).toBe(true)
+    expect(pausePossible({ statut: 'en_attente_gpu', avec_parametres: true }).possible).toBe(true)
+    expect(pausePossible({ statut: 'en_cours', avec_parametres: false }).possible).toBe(false)
+    expect(pausePossible({ statut: 'en_cours', avec_parametres: true, pause_demandee: true }).possible).toBe(false)
+    expect(pausePossible({ statut: 'en_pause', avec_parametres: true }).possible).toBe(false)
+    expect(relance({ statut: 'en_pause', avec_parametres: true }).libelle).toBe('Reprendre')
+    expect(estFinalise('en_pause')).toBe(false)
+  })
+
   it('durées', () => {
     expect(dureeMoyenneEpoque([{ epoque: 1, perte: 0.6, auc_image: 0.7, auc_sein: 0.7, duree_s: 600 }, { epoque: 2, perte: 0.5, auc_image: 0.7, auc_sein: 0.7, duree_s: 400 }])).toBe(500)
     expect(dureeMoyenneEpoque([])).toBeNull()
@@ -113,9 +123,9 @@ describe('suivi des entraînements', () => {
 
   it('chaque statut et chaque phase écrits par le moteur et l\'API ont un libellé', () => {
     const go = readFileSync(resolve(racine, '../backend/internal/entrainements/entrainements.go'), 'utf8')
-    for (const [, s] of go.matchAll(/(?:EnCours|Termine|Echec|Interrompu|SansNouvelle|EnAttente)\s+= "([a-z_]+)"/g)) expect(statutEntrainement[s!], s).toBeDefined()
+    for (const [, s] of go.matchAll(/(?:EnCours|Termine|Echec|Interrompu|SansNouvelle|EnAttente|EnPause)\s+= "([a-z_]+)"/g)) expect(statutEntrainement[s!], s).toBeDefined()
     const auto = readFileSync(resolve(racine, '../engine/mammomesh_engine/cnn/auto.py'), 'utf8')
-    for (const [, s] of auto.matchAll(/(?:EN_ATTENTE = |statut=)"([a-z_]+)"/g)) expect(statutEntrainement[s!], s).toBeDefined()
+    for (const [, s] of auto.matchAll(/(?:EN_ATTENTE = |EN_PAUSE = |statut=)"([a-z_]+)"/g)) expect(statutEntrainement[s!], s).toBeDefined()
     expect(estFinalise('en_attente_gpu')).toBe(false)
     const py = ['suivi.py', 'entrainement.py', '__main__.py'].map(f => readFileSync(resolve(racine, `../engine/mammomesh_engine/cnn/${f}`), 'utf8')).join('\n')
     const phases = [...py.matchAll(/phase\("([a-z_]+)"/g), ...py.matchAll(/"phase": "([a-z_]+)"/g)].map(m => m[1]!)

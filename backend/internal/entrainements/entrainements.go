@@ -25,6 +25,7 @@ const (
 	Interrompu   = "interrompu"
 	SansNouvelle = "sans_nouvelles"
 	EnAttente    = "en_attente_gpu" // écrit par le veilleur (mammomesh_engine.cnn.auto) toutes les minutes
+	EnPause      = "en_pause"       // mis en pause depuis l'interface : ne repart qu'avec « Reprendre »
 )
 
 // Délais au-delà desquels un entraînement « en cours » est dit sans nouvelles : etat.json est
@@ -71,6 +72,7 @@ type Resume struct {
 	Patience     int        `json:"patience,omitempty"`
 	// Actions possibles : les réglages du lancement (parametres.json) permettent une reprise exacte.
 	AvecParametres bool     `json:"avec_parametres"`
+	PauseDemandee  bool     `json:"pause_demandee"`    // pause en fin d'époque attendue (fichier « pause »)
 	Demande        *Demande `json:"demande,omitempty"` // action en attente du veilleur
 }
 
@@ -173,6 +175,7 @@ func lire(dossier, nom string, maintenant time.Time) (Detail, error) {
 	derniere := info.ModTime()
 
 	_, _, d.AvecParametres = lireFichier(rep, "parametres.json")
+	_, _, d.PauseDemandee = lireFichier(rep, "pause")
 	if b, mt, ok := lireFichier(rep, "journal.csv"); ok {
 		d.Journal = lireJournal(b)
 		if mt.After(derniere) {

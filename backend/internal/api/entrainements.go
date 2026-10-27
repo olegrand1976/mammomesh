@@ -60,25 +60,27 @@ func (s *Server) demanderEntrainement(w http.ResponseWriter, r *http.Request) {
 	}
 	var in struct {
 		Action string `json:"action"`
+		Mode   string `json:"mode"` // pause : fin_epoque (défaut) ou maintenant
 	}
 	if !readJSON(w, r, &in) {
 		return
 	}
 	nom := chi.URLParam(r, "nom")
-	dem, err := entrainements.Demander(s.cfg.ModelesDir, nom, in.Action, u.Username, time.Now())
+	dem, err := entrainements.DemanderMode(s.cfg.ModelesDir, nom, in.Action, in.Mode, u.Username, time.Now())
 	switch {
 	case errors.Is(err, entrainements.ErrIntrouvable):
 		writeError(w, http.StatusNotFound, "introuvable")
 	case errors.Is(err, entrainements.ErrActionInconnue):
 		writeError(w, http.StatusBadRequest, err.Error())
-	case errors.Is(err, entrainements.ErrEnCours), errors.Is(err, entrainements.ErrDejaDemande):
+	case errors.Is(err, entrainements.ErrEnCours), errors.Is(err, entrainements.ErrDejaDemande),
+		errors.Is(err, entrainements.ErrPasEnCours), errors.Is(err, entrainements.ErrSansReprise):
 		writeError(w, http.StatusConflict, err.Error())
 	case errors.Is(err, entrainements.ErrDemandesFermees):
 		writeError(w, http.StatusServiceUnavailable, err.Error())
 	case err != nil:
 		s.fail(w, err)
 	default:
-		s.st.Audit(r.Context(), u.ID, "interface", "entrainement."+dem.Action, map[string]any{"entrainement": nom})
+		s.st.Audit(r.Context(), u.ID, "interface", "entrainement."+dem.Action, map[string]any{"entrainement": nom, "mode": dem.Mode})
 		writeJSON(w, http.StatusAccepted, map[string]any{"demande": dem})
 	}
 }

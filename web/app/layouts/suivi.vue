@@ -9,7 +9,8 @@ const session = useSessionStore()
       <div class="container row">
         <NuxtLink to="/suivi" class="brand"><img src="/favicon.svg" alt="" width="22" height="22"> MammoMesh</NuxtLink>
         <nav v-if="!session.user?.must_change_password" class="row" aria-label="Navigation du suivi">
-          <NuxtLink to="/suivi">Campagnes</NuxtLink>
+          <NuxtLink to="/suivi">Accueil</NuxtLink>
+          <NuxtLink to="/suivi/campagnes">Campagnes</NuxtLink>
           <NuxtLink v-if="session.permissions?.proposer_config" to="/suivi/nouvelle">Nouvelle campagne</NuxtLink>
           <NuxtLink to="/suivi/jetons">Jetons MCP</NuxtLink>
           <NuxtLink to="/suivi/images">Images</NuxtLink>

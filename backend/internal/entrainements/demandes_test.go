@@ -97,3 +97,41 @@ func TestNouveau(t *testing.T) {
 		t.Fatal("un nouveau ne se rattache à aucun entraînement existant")
 	}
 }
+
+func TestPause(t *testing.T) {
+	d := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(d, DossierDemandes), 0o777); err != nil {
+		t.Fatal(err)
+	}
+	ecrire(t, filepath.Join(d, "actif", "etat.json"), `{"statut":"en_cours","maj":"2026-10-27T11:59:00Z"}`, t0)
+	ecrire(t, filepath.Join(d, "actif", "parametres.json"), `{}`, t0)
+	ecrire(t, filepath.Join(d, "ancien", "etat.json"), `{"statut":"en_cours","maj":"2026-10-27T11:59:00Z"}`, t0)
+	ecrire(t, filepath.Join(d, "fini", "rapport.json"), `{}`, t0)
+	ecrire(t, filepath.Join(d, "fini", "parametres.json"), `{}`, t0)
+
+	if _, err := DemanderMode(d, "fini", Pause, "", "marie", t0); !errors.Is(err, ErrPasEnCours) {
+		t.Fatalf("pause d'un entraînement fini : %v", err)
+	}
+	if _, err := DemanderMode(d, "ancien", Pause, "", "marie", t0); !errors.Is(err, ErrSansReprise) {
+		t.Fatalf("pause sans point de reprise : %v", err)
+	}
+	if _, err := DemanderMode(d, "actif", Pause, "plus-tard", "marie", t0); !errors.Is(err, ErrActionInconnue) {
+		t.Fatalf("mode inconnu : %v", err)
+	}
+	dem, err := DemanderMode(d, "actif", Pause, "", "marie", t0)
+	if err != nil || dem.Mode != PauseFinEpoque {
+		t.Fatalf("pause : %+v %v", dem, err)
+	}
+	if dem, _ := DemanderMode(d, "fini", Relancer, PauseMaintenant, "x", t0); dem.Mode != "" {
+		t.Fatal("le mode ne vaut que pour une pause")
+	}
+
+	ecrire(t, filepath.Join(d, "actif", "pause"), "marie", t0)
+	ecrire(t, filepath.Join(d, "pause-faite", "etat.json"), `{"statut":"en_pause","maj":"2026-10-20T11:59:00Z"}`, t0)
+	if r, _ := Lire(d, "actif", t0); !r.PauseDemandee {
+		t.Fatal("pause en fin d'époque attendue")
+	}
+	if r, _ := Lire(d, "pause-faite", t0.Add(48*time.Hour)); r.Statut != EnPause {
+		t.Fatalf("une pause dure : pas de « sans nouvelles » : %s", r.Statut)
+	}
+}

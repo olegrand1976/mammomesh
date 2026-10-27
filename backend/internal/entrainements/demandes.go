@@ -21,6 +21,13 @@ const (
 	Relancer  = "relancer"  // reprendre là où il s'est arrêté, ou relancer avec les mêmes réglages
 	Supprimer = "supprimer" // arrêter s'il tourne, puis effacer le dossier et son journal
 	Nouveau   = "nouveau"   // nouvel entraînement, avec les réglages donnés, en file d'attente du GPU
+	Pause     = "pause"     // mettre en pause (Mode : en fin d'époque ou tout de suite) ; « relancer » reprend
+)
+
+// Modes de pause.
+const (
+	PauseFinEpoque  = "fin_epoque" // après l'époque en cours : rien n'est perdu
+	PauseMaintenant = "maintenant" // tout de suite : l'époque en cours sera refaite
 )
 
 // Erreurs des demandes.
@@ -28,12 +35,15 @@ var (
 	ErrActionInconnue  = errors.New("action inconnue")
 	ErrDejaDemande     = errors.New("une demande est déjà en attente pour cet entraînement")
 	ErrEnCours         = errors.New("entraînement en cours : il n'y a rien à relancer")
+	ErrPasEnCours      = errors.New("seul un entraînement en cours ou en attente du GPU se met en pause")
+	ErrSansReprise     = errors.New("entraînement lancé avant les points de reprise : une pause le perdrait, le supprimer ou le laisser finir")
 	ErrDemandesFermees = errors.New("dossier des demandes inaccessible en écriture (lancer ./scripts/demarrer-pile.sh sur l'hôte)")
 )
 
 // Demande : une action en attente du veilleur.
 type Demande struct {
 	Action   string    `json:"action"`
+	Mode     string    `json:"mode,omitempty"` // action « pause » seulement
 	Nom      string    `json:"nom,omitempty"`
 	Par      string    `json:"par"`
 	Date     time.Time `json:"date"`
@@ -138,8 +148,23 @@ func toutes(dossier string) []Demande {
 // Demander dépose une demande, après vérification : l'entraînement existe, l'action a un sens,
 // aucune autre demande n'attend pour lui.
 func Demander(dossier, nom, action, par string, maintenant time.Time) (Demande, error) {
-	if action != Relancer && action != Supprimer {
+	return DemanderMode(dossier, nom, action, "", par, maintenant)
+}
+
+// DemanderMode : comme Demander, avec le mode d'une pause (défaut : en fin d'époque).
+func DemanderMode(dossier, nom, action, mode, par string, maintenant time.Time) (Demande, error) {
+	if action != Relancer && action != Supprimer && action != Pause {
 		return Demande{}, ErrActionInconnue
+	}
+	if action == Pause {
+		if mode == "" {
+			mode = PauseFinEpoque
+		}
+		if mode != PauseFinEpoque && mode != PauseMaintenant {
+			return Demande{}, ErrActionInconnue
+		}
+	} else {
+		mode = ""
 	}
 	d, err := Lire(dossier, nom, maintenant)
 	if err != nil {
@@ -148,10 +173,16 @@ func Demander(dossier, nom, action, par string, maintenant time.Time) (Demande, 
 	if action == Relancer && d.Statut == EnCours {
 		return Demande{}, ErrEnCours
 	}
+	if action == Pause && d.Statut != EnCours && d.Statut != EnAttente {
+		return Demande{}, ErrPasEnCours
+	}
+	if action == Pause && !d.AvecParametres {
+		return Demande{}, ErrSansReprise
+	}
 	if _, deja := Demandes(dossier)[nom]; deja {
 		return Demande{}, ErrDejaDemande
 	}
-	return deposer(dossier, Demande{Action: action, Nom: nom, Par: par, Date: maintenant.UTC()}, maintenant)
+	return deposer(dossier, Demande{Action: action, Mode: mode, Nom: nom, Par: par, Date: maintenant.UTC()}, maintenant)
 }
 
 // DemanderNouveau dépose la demande d'un nouvel entraînement, après vérification des réglages.

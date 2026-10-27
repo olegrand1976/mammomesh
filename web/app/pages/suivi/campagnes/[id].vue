@@ -23,7 +23,7 @@ onBeforeUnmount(() => store.disconnect())
 <template>
   <div>
     <div class="row crumbs">
-      <p class="small"><NuxtLink to="/suivi">Campagnes</NuxtLink> ›</p>
+      <p class="small"><NuxtLink to="/suivi/campagnes">Campagnes</NuxtLink> ›</p>
       <div class="spacer" />
       <button v-if="store.campaign" type="button" class="btn btn-sm" :aria-pressed="aidesToutes" @click="aidesToutes = !aidesToutes">
         {{ aidesToutes ? 'Masquer les aides' : 'Afficher toutes les aides' }}

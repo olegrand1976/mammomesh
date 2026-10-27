@@ -143,6 +143,15 @@ def main(argv: list[str] | None = None) -> int:
         if suivi:
             suivi.fin("interrompu", "Arrêté à la main (Ctrl+C)")
         raise
+    except Exception as e:
+        if type(e).__name__ != "PauseDemandee":
+            if suivi:
+                suivi.fin("echec", f"{type(e).__name__} : {e}")
+            raise
+        if suivi:
+            suivi.fin("en_pause", f"En pause après l'époque {e.args[0]} : « Reprendre » repartira de l'époque {e.args[0] + 1}")
+        print(f"En pause après l'époque {e.args[0]}.")
+        return 0
     except BaseException as e:
         if suivi:
             suivi.fin("echec", f"{type(e).__name__} : {e}")

@@ -80,7 +80,7 @@ async function act(action: 'pause' | 'reprise' | 'arret' | 'budget') {
         <div class="bar"><i :style="{ width: budgetPct + '%' }" /></div>
       </div>
       <div>
-        <span class="label">Meilleure sensibilité (E-val)</span>
+        <span class="label">Meilleure sensibilité (<Sigle t="E-val" />)</span>
         <strong>{{ fr(c.best_sensitivity) }}</strong>
         <span class="small muted">{{ c.stagnation }} génération(s) sans progrès</span>
       </div>

@@ -84,7 +84,7 @@ const libelleGen = (g: Generation) =>
 <template>
   <section class="card test" aria-labelledby="test-titre">
     <h2 id="test-titre">Tester un individu</h2>
-    <p class="small muted">Par défaut : la génération finale de la campagne et le meilleur individu de son front sur E-val.</p>
+    <p class="small muted">Par défaut : la génération finale de la campagne et le meilleur individu de son front sur <Sigle t="E-val" />.</p>
     <p v-if="error" class="alert">{{ error }}</p>
     <p v-if="!campagnes.length" class="muted small">Aucune campagne avec des générations calculées.</p>
     <template v-else>

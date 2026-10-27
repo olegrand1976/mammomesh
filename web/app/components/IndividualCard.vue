@@ -39,8 +39,8 @@ watch(() => props.id, async (id) => {
     <template v-if="ind">
       <table>
         <tbody>
-          <tr><th>Sensibilité (E-ajust)</th><td>{{ fr(ind.sensitivity) }} [{{ fr(ind.sensitivity_low) }} ; {{ fr(ind.sensitivity_high) }}]</td></tr>
-          <tr><th>Sensibilité (E-val)</th><td>{{ fr(ind.sensitivity_eval) }}</td></tr>
+          <tr><th>Sensibilité (<Sigle t="E-ajust" />)</th><td>{{ fr(ind.sensitivity) }} [{{ fr(ind.sensitivity_low) }} ; {{ fr(ind.sensitivity_high) }}]</td></tr>
+          <tr><th>Sensibilité (<Sigle t="E-val" />)</th><td>{{ fr(ind.sensitivity_eval) }}</td></tr>
           <tr><th>Coût par examen</th><td>{{ fr(ind.cost_ms, 0) }} ms</td></tr>
           <tr>
             <th>Mutations</th>

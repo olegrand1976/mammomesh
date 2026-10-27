@@ -27,11 +27,11 @@ const guards = [
         <h1>Un réseau qui voit, un réseau qui raisonne, et une évolution qui les accorde</h1>
         <p class="lead">
           MammoMesh fait évoluer, par algorithme génétique et recherche d'architecture, un couple
-          <strong>CNN + CephaloMesh</strong> qui repère les signes de cancer du sein sur mammographie.
-          Le CNN voit les lésions possibles ; CephaloMesh raisonne sur ce qui a été vu, comme le fait un radiologue
+          <strong><Sigle t="CNN" sans-lien /> + CephaloMesh</strong> qui repère les signes de cancer du sein sur mammographie.
+          Le <Sigle t="CNN" sans-lien /> voit les lésions possibles ; CephaloMesh raisonne sur ce qui a été vu, comme le fait un radiologue
           qui compare les vues, les deux seins et l'examen précédent.
         </p>
-        <p class="status">Outil de recherche : aucun résultat ne sert à un diagnostic. Un usage clinique exigerait le marquage CE (règlement (UE) 2017/745) et une étude dédiée.</p>
+        <p class="status">Outil de recherche : aucun résultat ne sert à un diagnostic. Un usage clinique exigerait le marquage <Sigle t="CE" sans-lien /> (règlement (UE) 2017/745) et une étude dédiée.</p>
       </div>
     </section>
 
@@ -41,10 +41,10 @@ const guards = [
         <article v-for="s in steps" :key="s.n" class="card">
           <span class="num">{{ s.n }}</span>
           <h3>{{ s.t }}</h3>
-          <p>{{ s.d }}</p>
+          <p><TexteGlossaire :texte="s.d" sans-lien /></p>
         </article>
       </div>
-      <p class="muted">Sortie : un score par zone et par sein, une catégorie BI-RADS suggérée et le récit de l'onde, qui dit pourquoi chaque zone est retenue ou écartée. C'est une suggestion à un radiologue, jamais une décision.</p>
+      <p class="muted">Sortie : un score par zone et par sein, une catégorie <Sigle t="BI-RADS" sans-lien /> suggérée et le récit de l'onde, qui dit pourquoi chaque zone est retenue ou écartée. C'est une suggestion à un radiologue, jamais une décision.</p>
     </section>
 
     <section class="container block two">
@@ -52,7 +52,7 @@ const guards = [
         <h2>Ce qui évolue</h2>
         <p>Chaque individu est un couple décrit par un génome à deux chromosomes, qui évoluent à deux vitesses.</p>
         <ul>
-          <li><strong>CNN, lentement</strong> : étages dégelés, cou, blocs ajoutés à l'identique, tête, résolutions. Le tronc pré-entraîné ne mute pas.</li>
+          <li><strong><Sigle t="CNN" sans-lien />, lentement</strong> : étages dégelés, cou, blocs ajoutés à l'identique, tête, résolutions. Le tronc pré-entraîné ne mute pas.</li>
           <li><strong>CephaloMesh, rapidement</strong> : seuils, portée des liens, contrôles actifs, budget de réanalyse, découpage du cube. Quelques dixièmes de milliseconde par examen.</li>
         </ul>
         <p>La sélection cherche le meilleur compromis entre sensibilité au taux de rappel du programme et temps par examen, sous un plancher de sensibilité non négociable.</p>
@@ -60,7 +60,7 @@ const guards = [
       <div class="card">
         <h3>Données prévues</h3>
         <ul class="small">
-          <li>EMBED (États-Unis) : 2D, 2D synthétique, tomosynthèse, lésions liées à la pathologie</li>
+          <li><Sigle t="EMBED" sans-lien /> (États-Unis) : 2D, 2D synthétique, tomosynthèse, lésions liées à la pathologie</li>
           <li>OPTIMAM (Royaume-Uni) : séries de dépistage avec cancers d'intervalle</li>
           <li>VinDr-Mammo (Vietnam) : entraînement seulement, sans pathologie</li>
           <li>Centre partenaire belge : jeu externe, population cible</li>
@@ -74,10 +74,10 @@ const guards = [
       <div class="guards">
         <article v-for="g in guards" :key="g.t">
           <h3>{{ g.t }}</h3>
-          <p>{{ g.d }}</p>
+          <p><TexteGlossaire :texte="g.d" sans-lien /></p>
         </article>
       </div>
-      <p class="muted small">Comptes rendus conformes à CLAIM 2024 et TRIPOD+AI. Données pseudonymisées, traitées sur le réseau local, avec avis éthique et analyse d'impact avant tout import.</p>
+      <p class="muted small">Comptes rendus conformes à <Sigle t="CLAIM" sans-lien /> 2024 et <Sigle t="TRIPOD" sans-lien />+AI. Données pseudonymisées, traitées sur le réseau local, avec avis éthique et analyse d'impact avant tout import.</p>
     </section>
 
     <section class="container block">

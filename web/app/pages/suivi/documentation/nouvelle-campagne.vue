@@ -19,9 +19,9 @@ const plage = (c: (typeof champs)[number]) => c.plage
       <p class="muted">{{ sections[s].intro }}</p>
       <div v-for="c in champs.filter(x => x.section === s)" :key="c.cle" class="champ">
         <h3>{{ c.libelle }} <span class="small muted">· {{ plage(c) }}</span></h3>
-        <p><strong>À quoi ça sert.</strong> {{ c.role }}</p>
-        <p><strong>Effet d'un changement.</strong> {{ c.impact }}</p>
-        <p v-if="c.boucleReelle"><strong>Avec la vraie boucle.</strong> {{ c.boucleReelle }}</p>
+        <p><strong>À quoi ça sert.</strong> <TexteGlossaire :texte="c.role" /></p>
+        <p><strong>Effet d'un changement.</strong> <TexteGlossaire :texte="c.impact" /></p>
+        <p v-if="c.boucleReelle"><strong>Avec la vraie boucle.</strong> <TexteGlossaire :texte="c.boucleReelle" /></p>
       </div>
     </section>
     <section id="repartir" class="card">

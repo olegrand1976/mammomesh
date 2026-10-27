@@ -94,8 +94,8 @@ const taille = (o: number) => o > 1e6 ? `${fr(o / 1e6, 1)} Mo` : `${fr(o / 1e3, 
             {{ envoi ? 'Import…' : 'Choisir un fichier DICOM' }}
             <input type="file" accept=".dcm,application/dicom" :disabled="envoi" @change="(e) => importer((e.target as HTMLInputElement).files?.[0])">
           </label>
-          <p class="small muted">ou le déposer ici. Rien d'identifiant n'est gardé : ni nom, ni identifiant, ni dates, ni établissement, ni nom de fichier ; seulement les pixels et des données techniques (dimensions, vue, latéralité, fabricant). Images à annotations incrustées refusées. Formats lus : non compressé et JPEG de base.</p>
-          <p class="small">Pas d'image sous la main ? Exemples synthétiques :
+          <p class="small muted">Fichier <Sigle t="DICOM" />, ou le déposer ici. Rien d'identifiant n'est gardé : ni nom, ni identifiant, ni dates, ni établissement, ni nom de fichier ; seulement les pixels et des données techniques (dimensions, vue, latéralité, fabricant). Images à annotations incrustées refusées. Formats lus : non compressé et <Sigle t="JPEG" /> de base.</p>
+          <p class="small">Pas d'image sous la main ? Exemples synthétiques (vues <Sigle t="CC" /> et <Sigle t="MLO" />) :
             <a href="/api/images/exemple.dcm?vue=CC&cote=L" download>CC gauche</a> ·
             <a href="/api/images/exemple.dcm?vue=MLO&cote=L" download>MLO gauche</a> ·
             <a href="/api/images/exemple.dcm?vue=CC&cote=R" download>CC droite</a> ·
@@ -108,7 +108,7 @@ const taille = (o: number) => o > 1e6 ? `${fr(o / 1e6, 1)} Mo` : `${fr(o / 1e3, 
             <li v-for="im in images" :key="im.id" :class="{ actif: choisie?.id === im.id }">
               <button type="button" class="choix" :aria-current="choisie?.id === im.id" @click="ouvrir(im)">
                 <strong>{{ im.libelle }}</strong>
-                <span class="small muted">{{ im.meta.cols }} × {{ im.meta.rows }} · {{ im.meta.view || '—' }} {{ im.meta.laterality }} · {{ im.nb_tests }} test(s) · {{ taille(im.taille_octets) }}</span>
+                <span class="small muted">{{ im.meta.cols }} × {{ im.meta.rows }} · <TexteGlossaire :texte="im.meta.view || '—'" /> {{ im.meta.laterality }} · {{ im.nb_tests }} test(s) · {{ taille(im.taille_octets) }}</span>
               </button>
               <button v-if="session.permissions?.purger_images" type="button" class="btn btn-sm btn-danger" :aria-label="`Supprimer ${im.libelle}`" @click="supprimer(im)">Supprimer</button>
             </li>

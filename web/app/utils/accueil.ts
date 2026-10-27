@@ -81,10 +81,10 @@ export const menus: Menu[] = [
     resume: 'Le fonctionnement complet, les formules et un guide pour chaque écran.',
     fonctionnement: [
       'Fonctionnement d\'une campagne de bout en bout, modèle mathématique (toutes les formules), lexique des mutations.',
-      'Guides d\'écran : Nouvelle campagne, suivi d\'une campagne, Images ; jeux d\'entraînement et leurs licences.',
+      'Guides d\'écran : Nouvelle campagne, suivi d\'une campagne, Images ; jeux d\'entraînement et leurs licences ; glossaire des sigles et mots techniques ; installation sur Windows 11 (PDF).',
       'Le même contenu se trouve dans le dossier docs/ du dépôt.',
     ],
-    liens: [{ titre: 'Sommaire', to: '/suivi/documentation' }],
+    liens: [{ titre: 'Sommaire', to: '/suivi/documentation' }, { titre: 'Glossaire', to: '/suivi/documentation/glossaire' }],
   },
   {
     cle: 'jetons',

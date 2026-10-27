@@ -45,9 +45,9 @@ function onInput(e: Event) {
       </template>
     </p>
     <div v-show="ouvert" :id="id + '-aide'" class="aide" role="note">
-      <p><strong>À quoi ça sert.</strong> {{ guide.role }}</p>
-      <p><strong>Effet d'un changement.</strong> {{ guide.impact }}</p>
-      <p v-if="guide.boucleReelle"><strong>Avec la vraie boucle.</strong> {{ guide.boucleReelle }}</p>
+      <p><strong>À quoi ça sert.</strong> <TexteGlossaire :texte="guide.role" /></p>
+      <p><strong>Effet d'un changement.</strong> <TexteGlossaire :texte="guide.impact" /></p>
+      <p v-if="guide.boucleReelle"><strong>Avec la vraie boucle.</strong> <TexteGlossaire :texte="guide.boucleReelle" /></p>
     </div>
   </div>
 </template>

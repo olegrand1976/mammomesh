@@ -6,6 +6,8 @@ export interface Bloc {
   etapes?: string[] // liste numérotée
   points?: string[] // liste à puces
   table?: { entetes: string[]; lignes: string[][] }
+  code?: string // commandes, affichées telles quelles
+  langage?: string // pour le document du dépôt : powershell, bash, ini…
 }
 
 export interface Partie {

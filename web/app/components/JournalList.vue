@@ -31,7 +31,7 @@ const time = (s: string) => new Date(s).toLocaleTimeString('fr-BE')
     <ol class="journal">
       <li v-for="e in items" :key="e.id" :class="e.type">
         <time>{{ time(e.created_at) }}</time>
-        <span><template v-for="(m, i) in decouperMessage(e.message)" :key="i"><MutationCode v-if="m.code" :code="m.code" /><template v-else>{{ m.texte }}</template></template></span>
+        <span><template v-for="(m, i) in decouperMessage(e.message)" :key="i"><MutationCode v-if="m.code" :code="m.code" /><TexteGlossaire v-else :texte="m.texte ?? ''" /></template></span>
       </li>
       <li v-if="!items.length" class="muted">Aucun événement.</li>
     </ol>

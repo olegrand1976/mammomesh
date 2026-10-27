@@ -17,14 +17,14 @@ const libelle = computed(() => `À quoi sert « ${z.value.titre} » ?`) // nom a
     :title="libelle" :aria-label="libelle" @click="ouvert = !ouvert">?</button>
   <Teleport v-if="ouvert" defer :to="`#${id}-ici`">
     <div :id="id" class="aide-zone" role="note">
-      <p class="resume">{{ z.resume }}</p>
+      <p class="resume"><TexteGlossaire :texte="z.resume" /></p>
       <dl>
         <template v-for="e in z.elements" :key="e.nom">
-          <dt>{{ e.nom }}</dt>
-          <dd>{{ e.description }}</dd>
+          <dt><TexteGlossaire :texte="e.nom" /></dt>
+          <dd><TexteGlossaire :texte="e.description" /></dd>
         </template>
       </dl>
-      <p v-if="z.aSavoir" class="a-savoir"><strong>À savoir.</strong> {{ z.aSavoir }}</p>
+      <p v-if="z.aSavoir" class="a-savoir"><strong>À savoir.</strong> <TexteGlossaire :texte="z.aSavoir" /></p>
     </div>
   </Teleport>
 </template>

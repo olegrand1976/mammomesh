@@ -42,8 +42,8 @@ const status = (t: MCPToken) => (t.revoked_at ? 'révoqué' : new Date(t.expires
 
 <template>
   <div>
-    <h1>Jetons MCP</h1>
-    <p class="muted">Un jeton relie Claude Code au serveur MCP de MammoMesh avec vos droits. « Lecture » donne les résultats ; « proposition » permet aussi de créer et vérifier des configurations, et de lancer ou régler une campagne si votre rôle le permet. Validité : 90 jours.</p>
+    <h1>Jetons <Sigle t="MCP" /></h1>
+    <p class="muted">Un jeton relie Claude Code au serveur <Sigle t="MCP" /> de MammoMesh avec vos droits. « Lecture » donne les résultats ; « proposition » permet aussi de créer et vérifier des configurations, et de lancer ou régler une campagne si votre rôle le permet. Validité : 90 jours.</p>
     <p v-if="error" class="alert">{{ error }}</p>
 
     <section class="card">

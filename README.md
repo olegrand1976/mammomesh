@@ -14,13 +14,15 @@ La conception complète (protocole, garde-fous, pile, déploiement) est dans la 
 | Temps réel : PostgreSQL `LISTEN/NOTIFY` → relais Go → SSE, fusion des progressions, reprise par `Last-Event-ID` | fait |
 | Orchestrateur autonome : verrou unique, reprise après redémarrage, arrêt sur plafond, budget ou stagnation de E-val | fait |
 | Serveur MCP pour Claude Code (`/mcp`) : 10 outils, ressource « rapport », 2 invites, jetons personnels | fait |
-| Interface Nuxt : page de présentation scientifique, login, campagnes, écran de suivi en direct, jetons MCP | fait |
+| Interface Nuxt : page de présentation scientifique, login, barre latérale repliable (tiroir sur téléphone), accueil qui explique chaque menu, campagnes, écran de suivi en direct, entraînements, images, jetons MCP | fait |
+| Infobulles : chaque sigle de chaque écran (CNN, AUC, E-val, DICOM, GPU…) s'explique au survol ou au clavier ; glossaire complet dans la documentation | fait |
 | Campagnes chaînées : repartir du front de la génération finale (ou d'une intermédiaire) d'une campagne finie | fait |
 | Images : import DICOM pseudonymisé, visionneuse (fenêtrage, zoom), test d'un individu au choix (génération finale par défaut) | fait, résultat **simulé** |
-| Documentation intégrée : fonctionnement, modèle mathématique (KaTeX), guides d'écran, lexique des mutations | fait, aussi dans `docs/` |
+| Documentation intégrée : fonctionnement, modèle mathématique (KaTeX), guides d'écran, lexique des mutations, jeux d'entraînement, glossaire, installation sur Windows 11 (avec PDF) | fait, aussi dans `docs/` |
 | Docker compose : Caddy, web, api, orchestrator, migrate, PostgreSQL 18, Redis 8, SeaweedFS, sauvegarde, observabilité | fait |
 | Boucle CNN + CephaloMesh | **simulée** (déterministe) : le vrai couple arrive aux jalons 1 à 3 |
-| CNN de base (EfficientNet-B0, malin ou bénin sur CMMD) | code prêt (`engine/mammomesh_engine/cnn`), suivi dans l'interface (menu Entraînements) ; pas encore branché au test d'image |
+| CNN de base (EfficientNet-B0, malin ou bénin sur CMMD) | fait : entraînement sur GPU, suivi en direct et temps de fin estimés, nouvel entraînement, pause, reprise, relance et suppression depuis l'interface, reprise automatique quand le GPU est libre ; pas encore branché au test d'image |
+| Installation | script pour un nouveau serveur Linux (détection du matériel), procédure Windows 11 (WSL, PDF), démarrage automatique (services systemd) | fait |
 | Banque d'entraînement, chaîne d'import DICOM complète (JPEG 2000, pseudonymisation de la banque), moteur d'analyse, Triton, entraînement | jalons 0 et 1 |
 
 ## Architecture
@@ -38,7 +40,11 @@ Seul Caddy publie un port, sur le réseau local. Les réseaux `app`, `data` et `
 
 ## Démarrer la pile (serveur du réseau local)
 
-**Nouveau serveur** : `./scripts/installer-serveur.sh` installe tout (Docker, pilote et accès GPU, PyTorch adapté, pile, démarrage automatique) en détectant le matériel ; voir [docs/installation-serveur.md](docs/installation-serveur.md). Installation à la main :
+**Nouveau serveur Linux** (Ubuntu, Debian) : `./scripts/installer-serveur.sh` installe tout (Docker, pilote et accès GPU, PyTorch adapté, pile, démarrage automatique) en détectant le matériel ; voir [docs/installation-serveur.md](docs/installation-serveur.md).
+
+**Poste Windows 11** : la pile tourne dans WSL 2 (Debian), installée par le même script, qui reconnaît WSL ; procédure complète (WSL, réseau, pare-feu, GPU NVIDIA, certificat, démarrage avec Windows) dans [docs/installation-windows-11.md](docs/installation-windows-11.md) et en **PDF prêt à imprimer** : [docs/installation-windows-11.pdf](docs/installation-windows-11.pdf), aussi téléchargeable depuis l'interface (Documentation › Installation sur Windows 11).
+
+Installation à la main :
 
 Prérequis : Docker avec le plugin compose, un nom DNS local (ou une ligne dans le fichier hosts des postes) qui pointe vers le serveur.
 
@@ -176,7 +182,7 @@ Serveur MCP en stdio pour le développement : `MAMMOMESH_MCP_TOKEN=mmk_... go ru
 | Unitaires Go | `make test-backend` | mots de passe, limiteur (Redis absent, gelé, rétabli), configuration et secrets, contrôles de configuration, simulation déterministe et départ, SSE, cache MCP, import DICOM (pseudonymisation, refus), test simulé, stockages (`MAMMOMESH_FILER_TEST` : vrai filer SeaweedFS) |
 | Intégration Go | `DATABASE_URL_TEST=… REDIS_URL_TEST=… make test-backend` | base remise à zéro : compte par défaut et changement imposé, origines, limitation (Redis réel), brouillon → lancement → orchestrateur, SSE et reprise `Last-Event-ID`, réglages, lectures REST, 10 outils MCP par portée, audit, révocation, repartir d'une campagne (contrôles, parents), images (import, doublons, pixels, tests, droits, purge) |
 | Moteur Python | `make test-engine` | CNN de base (découpage par patiente, données cliniques, AUC et seuil, prétraitement, refus faute de place) ; plan d'exécution sur des machines types (portable A1000, serveur 2 × A100, CPU seul, Pascal, petit GPU, Arc, Iris Xe), lecture de `nvidia-smi`, machine simulée, calibrage du lot et cache |
-| Unitaires web | `make test-web` | Vitest en environnement Nuxt : stores campagne et session, aides des écrans, effets calculés, lexique des mutations, formules KaTeX, concordance avec `docs/` |
+| Unitaires web | `make test-web` | Vitest en environnement Nuxt : stores campagne et session, aides des écrans, effets calculés, lexique des mutations, formules KaTeX, concordance avec `docs/` (et PDF identique dans `web/public/docs/`), menu et accueil, entraînements (temps de fin, pause, relance), glossaire (chaque sigle des écrans est expliqué) |
 | Bout en bout | `E2E_DATABASE_URL=… make e2e` | Playwright, pile complète (API, orchestrateur, Nuxt, proxy à la place de Caddy, port 14000) : présentation, refus, premier accès, campagne suivie en direct jusqu'à la fin, aides et effets des réglages, repartir d'une campagne, images (import, visionneuse, test, suppression), documentation, jetons MCP, déconnexion, affichage téléphone |
 
 DICOM réels de sources libres (fo-dicom, pydicom, TCIA) : `make exemples` puis `go test -count=1 ./internal/imagerie -run TestExemples` ; voir [examples/README.md](examples/README.md).
@@ -185,7 +191,19 @@ La CI lance les cinq niveaux, avec PostgreSQL 18 et Redis 8 en services. Couvert
 
 ## Documentation
 
-Dans l'application : la page d'**Accueil** explique chaque menu et la différence entre une campagne et un entraînement ; le menu **Documentation** détaille le reste. Dans le dépôt : [fonctionnement](docs/fonctionnement-campagne.md), [modèle mathématique](docs/modele-mathematique.md), guides d'écran [Nouvelle campagne](docs/guide-nouvelle-campagne.md), [suivi d'une campagne](docs/guide-suivi-campagne.md) et [Images](docs/guide-images.md), [jeux d'entraînement](docs/jeux-entrainement.md) (banque du jalon 0 : licences, téléchargement, citations, sources). Les deux versions viennent des mêmes données (`web/app/utils/`) ; un test vérifie qu'elles concordent.
+Dans l'application : la page d'**Accueil** explique chaque menu et la différence entre une campagne et un entraînement ; chaque sigle affiche son explication au survol ; le menu **Documentation** détaille le reste.
+
+| Document | Dépôt |
+|---|---|
+| Fonctionnement d'une campagne | [docs/fonctionnement-campagne.md](docs/fonctionnement-campagne.md) |
+| Modèle mathématique | [docs/modele-mathematique.md](docs/modele-mathematique.md) |
+| Guides d'écran | [Nouvelle campagne](docs/guide-nouvelle-campagne.md), [suivi d'une campagne](docs/guide-suivi-campagne.md), [Images](docs/guide-images.md) |
+| Jeux d'entraînement (banque du jalon 0 : licences, téléchargement, citations, sources) | [docs/jeux-entrainement.md](docs/jeux-entrainement.md) |
+| Glossaire (sigles et mots techniques) | [docs/glossaire.md](docs/glossaire.md) |
+| Installation d'un serveur Linux | [docs/installation-serveur.md](docs/installation-serveur.md) |
+| Installation sur Windows 11 (WSL, Debian, Docker, GPU) | [docs/installation-windows-11.md](docs/installation-windows-11.md), [PDF](docs/installation-windows-11.pdf) |
+
+Les pages de l'interface et les documents du dépôt viennent des mêmes données (`web/app/utils/`) ; un test vérifie qu'ils concordent. Après modification du glossaire ou de la procédure Windows : `./scripts/generer-docs.sh` (Node 22.6+, `python3-reportlab`) régénère `docs/glossaire.md`, `docs/installation-windows-11.md` et le PDF (copié dans `web/public/docs/`).
 
 ## Notes techniques
 

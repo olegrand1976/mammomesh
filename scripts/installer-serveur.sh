@@ -116,7 +116,13 @@ for i in ${ID:-} ${ID_LIKE:-}; do [[ $i == ubuntu || $i == debian ]] && { FAMILL
 CODENAME="${UBUNTU_CODENAME:-${VERSION_CODENAME:-}}"
 [[ $FAMILLE == debian ]] && CODENAME="${VERSION_CODENAME:-}"
 ARCH="$(dpkg --print-architecture)"
-ok "$PRETTY_NAME ($ARCH), famille $FAMILLE ($CODENAME), compte $UTIL"
+WSL=0; grep -qi microsoft /proc/version 2>/dev/null && WSL=1
+ok "$PRETTY_NAME ($ARCH), famille $FAMILLE ($CODENAME), compte $UTIL$([[ $WSL == 1 ]] && echo ', sous WSL (Windows)')"
+if [[ $WSL == 1 && "$(ps -p 1 -o comm= 2>/dev/null)" != systemd ]]; then
+  # Docker et les services de démarrage ont besoin de systemd, désactivé par défaut dans certaines distributions WSL.
+  ecrire_root /etc/wsl.conf "$( (grep -v -e '^\[boot\]' -e '^systemd=' /etc/wsl.conf 2>/dev/null || true); printf '[boot]\nsystemd=true\n')"
+  erreur "systemd vient d'être activé pour WSL. Dans PowerShell : « wsl --shutdown », rouvrir Debian, puis relancer ce script."
+fi
 [[ $ARCH == amd64 || $ARCH == arm64 ]] || alerte "architecture $ARCH non testée"
 
 CPU="$(grep -m1 'model name' /proc/cpuinfo 2>/dev/null | cut -d: -f2- | sed 's/^ *//')"
@@ -138,6 +144,15 @@ apt_installer git curl ca-certificates gnupg openssl pciutils unzip p7zip-full p
 # ---------- 3. Matériel ----------
 etape "Matériel"
 GPU_NVIDIA=0 GPU_AMD=0 GPU_INTEL=0
+# WSL : le GPU n'apparaît pas sur le bus PCI ; le pilote Windows le prête à Linux (/usr/lib/wsl/lib).
+if [[ $WSL == 1 ]]; then
+  if [[ -x /usr/lib/wsl/lib/nvidia-smi ]] && /usr/lib/wsl/lib/nvidia-smi -L >/dev/null 2>&1; then
+    GPU_NVIDIA=1; ok "NVIDIA (pilote Windows) : $(/usr/lib/wsl/lib/nvidia-smi -L | head -1)"
+    command -v nvidia-smi >/dev/null || root ln -sf /usr/lib/wsl/lib/nvidia-smi /usr/local/bin/nvidia-smi
+  else
+    info "aucun GPU NVIDIA prêté par Windows (pilote NVIDIA Windows absent ou trop ancien)"
+  fi
+fi
 for d in /sys/bus/pci/devices/*; do
   [[ -r $d/class && "$(cat "$d/class")" == 0x03* ]] || continue   # contrôleurs d'affichage et 3D
   vendeur="$(cat "$d/vendor")"
@@ -180,8 +195,10 @@ ajouter_groupe docker
 etape "Pilote et accès des conteneurs au GPU ($ACCEL)"
 case "$ACCEL" in
   nvidia)
-    if nvidia-smi -L >/dev/null 2>&1; then
-      ok "pilote NVIDIA $(nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -1) : $(nvidia-smi -L | head -1)"
+    if nvidia-smi -L >/dev/null 2>&1 || { [[ $WSL == 1 ]] && [[ $GPU_NVIDIA == 1 ]]; }; then
+      ok "pilote NVIDIA $(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1)$([[ $WSL == 1 ]] && echo ' (Windows : ne jamais installer de pilote Linux dans WSL)')"
+    elif [[ $WSL == 1 ]]; then
+      alerte "WSL : installer ou mettre à jour le pilote NVIDIA sous Windows (jamais dans Debian), puis « wsl --shutdown » et relancer ce script"
     elif [[ $SANS_PILOTE == 1 ]]; then
       alerte "pilote NVIDIA absent (--sans-pilote) : l'installer, redémarrer, puis relancer ce script"
     elif [[ $FAMILLE == ubuntu ]]; then
@@ -271,8 +288,9 @@ fi
 run ./scripts/init-secrets.sh
 run mkdir -p modeles/.demandes
 run chmod 0777 modeles/.demandes
-# Le serveur se joint lui-même par son nom (essais, certificat).
-if [[ "$SITE" != localhost ]] && ! getent hosts "$SITE" >/dev/null; then
+# Le serveur se joint lui-même par son nom (essais, certificat). Sous WSL, /etc/hosts est régénéré par
+# Windows : c'est le fichier hosts de Windows qu'il faut compléter (voir la procédure Windows 11).
+if [[ $WSL == 0 && "$SITE" != localhost ]] && ! getent hosts "$SITE" >/dev/null; then
   root sh -c "printf '127.0.1.1 %s\n' '$SITE' >> /etc/hosts"
 fi
 

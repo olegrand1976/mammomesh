@@ -14,8 +14,8 @@ defineProps<{ ouvert?: boolean }>()
         <tr v-for="m in mutations" :key="m.famille">
           <td><code>{{ m.famille }}</code><div class="small muted">{{ m.partie }}</div></td>
           <td>{{ m.gene }}</td>
-          <td class="hide-sm small">{{ m.role }}</td>
-          <td class="small">{{ m.effet }}</td>
+          <td class="hide-sm small"><TexteGlossaire :texte="m.role" /></td>
+          <td class="small"><TexteGlossaire :texte="m.effet" /></td>
         </tr>
       </tbody>
     </table></div>

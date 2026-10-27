@@ -37,7 +37,7 @@ onBeforeUnmount(() => clearInterval(timer))
     <section class="card">
       <div v-if="campaigns.length" class="table-wrap"><table>
         <thead>
-          <tr><th>Campagne</th><th>État</th><th>Génération</th><th>Meilleure sensibilité (E-val)</th><th class="hide-sm">Budget</th><th class="hide-sm">Lancée le</th></tr>
+          <tr><th>Campagne</th><th>État</th><th>Génération</th><th>Meilleure sensibilité (<Sigle t="E-val" />)</th><th class="hide-sm">Budget</th><th class="hide-sm">Lancée le</th></tr>
         </thead>
         <tbody>
           <tr v-for="c in campaigns" :key="c.id">

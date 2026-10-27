@@ -7,14 +7,14 @@ defineProps<{ zones: { cle: string; titre: string; resume: string; elements: Ele
 <template>
   <section v-for="(z, i) in zones" :id="z.cle" :key="z.cle" class="card">
     <h2>{{ i + 1 }}. {{ z.titre }}</h2>
-    <p class="muted">{{ z.resume }}</p>
+    <p class="muted"><TexteGlossaire :texte="z.resume" /></p>
     <dl>
       <template v-for="e in z.elements" :key="e.nom">
-        <dt>{{ e.nom }}</dt>
-        <dd>{{ e.description }}</dd>
+        <dt><TexteGlossaire :texte="e.nom" /></dt>
+        <dd><TexteGlossaire :texte="e.description" /></dd>
       </template>
     </dl>
-    <p v-if="z.aSavoir"><strong>À savoir.</strong> {{ z.aSavoir }}</p>
+    <p v-if="z.aSavoir"><strong>À savoir.</strong> <TexteGlossaire :texte="z.aSavoir" /></p>
   </section>
 </template>
 

@@ -7,7 +7,7 @@ defineProps<{ titre: string; intro?: string; sommaire?: { id: string; titre: str
   <article class="doc">
     <p class="small crumbs"><NuxtLink to="/suivi/documentation">Documentation</NuxtLink> ›</p>
     <h1>{{ titre }}</h1>
-    <p v-if="intro" class="muted">{{ intro }}</p>
+    <p v-if="intro" class="muted"><TexteGlossaire :texte="intro" /></p>
     <nav v-if="sommaire?.length" class="card sommaire" aria-label="Sommaire">
       <ol><li v-for="s in sommaire" :key="s.id"><a :href="`#${s.id}`">{{ s.titre }}</a></li></ol>
     </nav>

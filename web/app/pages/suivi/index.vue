@@ -32,8 +32,8 @@ const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`
     <h1>Accueil</h1>
     <p class="intro">
       Bonjour {{ session.user?.display_name || session.user?.username }}. MammoMesh cherche, de façon autonome, un couple
-      <strong>CNN + CephaloMesh</strong> qui repère les signes de cancer du sein sur mammographie : le CNN <em>voit</em> les lésions
-      possibles, CephaloMesh <em>raisonne</em> sur ce qui a été vu (concordance des vues, symétrie, évolution, cohérence BI-RADS).
+      <strong><Sigle t="CNN" /> + CephaloMesh</strong> qui repère les signes de cancer du sein sur mammographie : le <Sigle t="CNN" /> <em>voit</em> les lésions
+      possibles, CephaloMesh <em>raisonne</em> sur ce qui a été vu (concordance des vues, symétrie, évolution, cohérence <Sigle t="BI-RADS" />).
       Outil de recherche : aucun résultat ne sert à un diagnostic.
     </p>
 
@@ -51,15 +51,15 @@ const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`
     <section id="campagne-ou-entrainement" class="card">
       <h2>Campagne ou entraînement ?</h2>
       <p>
-        Les deux améliorent MammoMesh, mais pas la même moitié. Un <strong>entraînement</strong> apprend au CNN à regarder :
+        Les deux améliorent MammoMesh, mais pas la même moitié. Un <strong>entraînement</strong> apprend au <Sigle t="CNN" /> à regarder :
         il ajuste les poids du réseau sur des mammographies dont on connaît la réponse. Une <strong>campagne</strong> cherche
         comment raisonner sur ce regard : elle fait évoluer une population de réglages de CephaloMesh et garde les meilleurs
-        compromis entre sensibilité et temps de calcul. On entraîne d'abord le CNN ; les campagnes s'appuieront ensuite sur lui.
+        compromis entre sensibilité et temps de calcul. On entraîne d'abord le <Sigle t="CNN" /> ; les campagnes s'appuieront ensuite sur lui.
       </p>
       <div class="table-wrap"><table>
         <thead><tr><th /><th>Campagne</th><th>Entraînement</th></tr></thead>
         <tbody>
-          <tr v-for="l in comparaison" :key="l.aspect"><td class="cle">{{ l.aspect }}</td><td>{{ l.campagne }}</td><td>{{ l.entrainement }}</td></tr>
+          <tr v-for="l in comparaison" :key="l.aspect"><td class="cle">{{ l.aspect }}</td><td><TexteGlossaire :texte="l.campagne" /></td><td><TexteGlossaire :texte="l.entrainement" /></td></tr>
         </tbody>
       </table></div>
     </section>
@@ -69,7 +69,7 @@ const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`
       <ol class="parcours">
         <li><strong>Banque d'images</strong> : les mammographies publiques sont téléchargées sur le serveur
           (<NuxtLink to="/suivi/documentation/jeux-entrainement">jeux d'entraînement</NuxtLink>).</li>
-        <li><strong>Entraîner le CNN</strong> : menu <NuxtLink to="/suivi/entrainements">Entraînements</NuxtLink>, « Nouvel entraînement ».</li>
+        <li><strong>Entraîner le <Sigle t="CNN" /></strong> : menu <NuxtLink to="/suivi/entrainements">Entraînements</NuxtLink>, « Nouvel entraînement ».</li>
         <li><strong>Lancer une campagne</strong> : menu <NuxtLink to="/suivi/nouvelle">Nouvelle campagne</NuxtLink>, réglages vérifiés avant lancement.</li>
         <li><strong>Suivre et comparer</strong> : menu <NuxtLink to="/suivi/campagnes">Campagnes</NuxtLink>, front de Pareto et fiches des individus.</li>
         <li><strong>Essayer sur une image</strong> : menu <NuxtLink to="/suivi/images">Images</NuxtLink>, test d'un individu sur une mammographie.</li>
@@ -80,8 +80,8 @@ const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`
     <div class="grid menus">
       <section v-for="m in visibles" :id="`menu-${m.cle}`" :key="m.cle" class="card menu">
         <h3><NuxtLink :to="m.to">{{ m.titre }}</NuxtLink></h3>
-        <p class="resume">{{ m.resume }}</p>
-        <ul><li v-for="f in m.fonctionnement" :key="f">{{ f }}</li></ul>
+        <p class="resume"><TexteGlossaire :texte="m.resume" /></p>
+        <ul><li v-for="f in m.fonctionnement" :key="f"><TexteGlossaire :texte="f" /></li></ul>
         <p class="liens small">
           <NuxtLink :to="m.to" class="btn">Ouvrir</NuxtLink>
           <NuxtLink v-for="l in m.liens" :key="l.to" :to="l.to">{{ l.titre }}</NuxtLink>

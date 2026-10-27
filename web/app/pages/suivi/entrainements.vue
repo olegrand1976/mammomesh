@@ -157,7 +157,7 @@ const option = computed(() => {
 <template>
   <div>
     <div class="row head">
-      <h1>Entraînements du CNN</h1>
+      <h1>Entraînements du <Sigle t="CNN" /></h1>
       <div class="spacer" />
       <button v-if="session.permissions?.gerer_entrainements && configure" class="btn btn-primary" :disabled="formulaire" @click="ouvrirFormulaire">
         Nouvel entraînement
@@ -165,59 +165,59 @@ const option = computed(() => {
     </div>
     <p class="muted small intro">
       Suivi des entraînements lancés avec <code>python -m mammomesh_engine.cnn</code>, rafraîchi toutes les 5 secondes.
-      Les mesures se font sur l'ensemble d'ajustement (E-ajust) ; la validation (E-val) n'est mesurée qu'à la fin, sur des patientes jamais vues.
+      Les mesures se font sur l'ensemble d'ajustement (<Sigle t="E-ajust" />) ; la validation (<Sigle t="E-val" />) n'est mesurée qu'à la fin, sur des patientes jamais vues.
     </p>
     <details class="card cnn">
       <summary>Qu'est-ce qu'un CNN, et que montre cette page ?</summary>
       <p>
-        Un <strong>CNN</strong> (<em>convolutional neural network</em>, réseau de neurones convolutif) est un programme qui apprend
+        Un <strong><Sigle t="CNN" /></strong> (<em>convolutional neural network</em>, réseau de neurones convolutif) est un programme qui apprend
         à reconnaître des motifs dans des images. Ses premières couches repèrent des bords et des textures, les suivantes des
         formes de plus en plus complexes. On ne lui écrit pas de règles : on lui montre des milliers d'exemples dont on connaît
         la réponse, et il ajuste ses millions de paramètres pour se tromper de moins en moins.
       </p>
       <p>
-        Dans MammoMesh, le CNN est le <strong>regard</strong> : il lit la mammographie et donne un score ; CephaloMesh, ensuite,
+        Dans MammoMesh, le <Sigle t="CNN" /> est le <strong>regard</strong> : il lit la mammographie et donne un score ; CephaloMesh, ensuite,
         <strong>raisonne</strong> sur ce qu'il a vu (concordance des vues, symétrie, évolution depuis l'examen précédent).
-        Le CNN entraîné ici (EfficientNet-B0, partant de poids appris sur des photos ordinaires) apprend, sur la base CMMD,
+        Le <Sigle t="CNN" /> entraîné ici (EfficientNet-B0, partant de poids appris sur des photos ordinaires) apprend, sur la base <Sigle t="CMMD" />,
         à dire si un sein qui porte une anomalie est plutôt <strong>malin ou bénin</strong> (prouvé par biopsie).
       </p>
       <ul>
         <li><strong>Époque</strong> : un passage complet sur toutes les images d'entraînement.</li>
         <li><strong>Perte</strong> : l'erreur moyenne pendant l'apprentissage ; elle doit baisser.</li>
-        <li><strong>AUC</strong> : de 0,5 (hasard) à 1 (parfait), la probabilité qu'un sein malin reçoive un score plus haut qu'un sein bénin.</li>
-        <li><strong>Ajustement (E-ajust)</strong> : patientes mises de côté pour suivre les progrès et choisir le seuil ;
-          <strong>validation (E-val)</strong> : patientes jamais vues, mesurées une seule fois à la fin.</li>
+        <li><strong><Sigle t="AUC" /></strong> : de 0,5 (hasard) à 1 (parfait), la probabilité qu'un sein malin reçoive un score plus haut qu'un sein bénin.</li>
+        <li><strong>Ajustement (<Sigle t="E-ajust" />)</strong> : patientes mises de côté pour suivre les progrès et choisir le seuil ;
+          <strong>validation (<Sigle t="E-val" />)</strong> : patientes jamais vues, mesurées une seule fois à la fin.</li>
       </ul>
       <p class="small muted">Outil de recherche : aucun résultat ne sert à un diagnostic.</p>
     </details>
     <p v-if="erreur" class="alert">{{ erreur }}</p>
-    <p v-if="info" class="attente">{{ info }}</p>
+    <p v-if="info" class="attente"><TexteGlossaire :texte="info" /></p>
     <p v-if="!configure" class="alert">
-      Le suivi n'est pas configuré : l'API doit connaître le dossier des modèles (variable <code>MODELES_DIR</code> ;
+      Le suivi n'est pas configuré : l'<Sigle t="API" /> doit connaître le dossier des modèles (variable <code>MODELES_DIR</code> ;
       avec Docker, le dossier <code>./modeles</code> est monté d'office).
     </p>
 
     <form v-if="formulaire && reglages" class="card nouveau" @submit.prevent="lancerNouveau">
       <h2>Nouvel entraînement</h2>
       <p class="small muted">
-        Sur la banque CMMD du serveur. La demande va au veilleur (service mammomesh-entrainement), qui lance l'entraînement
-        dès que le GPU est libre ; il apparaît aussitôt dans « En cours ». Les valeurs proposées sont celles par défaut.
+        Sur la banque <Sigle t="CMMD" /> du serveur. La demande va au veilleur (service mammomesh-entrainement), qui lance l'entraînement
+        dès que le <Sigle t="GPU" /> est libre ; il apparaît aussitôt dans « En cours ». Les valeurs proposées sont celles par défaut.
       </p>
       <div class="grid champs">
         <label v-for="cle in (['epoques', 'patience', 'limite', 'lr', 'sensibilite_cible', 'graine'] as const)" :key="cle">
           <span>{{ aideReglages[cle].libelle }}</span>
           <input v-model.number="reglages[cle]" type="number" required
             :step="cle === 'lr' ? 0.00001 : cle === 'sensibilite_cible' ? 0.01 : 1" :min="cle === 'lr' ? 0.00001 : 0">
-          <small class="muted">{{ aideReglages[cle].aide }}</small>
+          <small class="muted"><TexteGlossaire :texte="aideReglages[cle].aide" /></small>
         </label>
         <label>
           <span>{{ aideReglages.resolution.libelle }}</span>
           <select v-model="reglages.resolution"><option v-for="r in resolutions" :key="r" :value="r">{{ r.replace('x', ' × ') }}</option></select>
-          <small class="muted">{{ aideReglages.resolution.aide }}</small>
+          <small class="muted"><TexteGlossaire :texte="aideReglages.resolution.aide" /></small>
         </label>
         <label class="case">
           <span><input v-model="reglages.sans_preentrainement" type="checkbox"> {{ aideReglages.sans_preentrainement.libelle }}</span>
-          <small class="muted">{{ aideReglages.sans_preentrainement.aide }}</small>
+          <small class="muted"><TexteGlossaire :texte="aideReglages.sans_preentrainement.aide" /></small>
         </label>
       </div>
       <div class="row actions">
@@ -239,7 +239,7 @@ const option = computed(() => {
         le veilleur le crée dans quelques secondes. S'il ne tourne pas, rien ne se passera.
       </p>
       <div v-if="affiches.length" class="table-wrap"><table>
-        <thead><tr><th>Entraînement</th><th>État</th><th>Phase</th><th>Époque</th><th>Meilleure AUC (ajustement)</th><th class="hide-sm">AUC validation</th><th v-if="vue === 'en-cours'">Fin estimée</th><th class="hide-sm">{{ vue === 'finalises' ? 'Fin' : 'Dernière nouvelle' }}</th></tr></thead>
+        <thead><tr><th>Entraînement</th><th>État</th><th>Phase</th><th>Époque</th><th>Meilleure <Sigle t="AUC" /> (ajustement)</th><th class="hide-sm"><Sigle t="AUC" /> validation</th><th v-if="vue === 'en-cours'">Fin estimée</th><th class="hide-sm">{{ vue === 'finalises' ? 'Fin' : 'Dernière nouvelle' }}</th></tr></thead>
         <tbody>
           <tr v-for="e in affiches" :key="e.nom" :class="{ choisi: e.nom === detail?.nom }">
             <td><a href="#" @click.prevent="router.replace({ query: { vue, nom: e.nom } })">{{ e.nom }}</a></td>
@@ -274,7 +274,7 @@ const option = computed(() => {
                 <button class="btn" @click="demander('pause', 'maintenant')">Tout de suite</button>
                 <small class="muted">L'époque en cours sera refaite à la reprise.</small>
               </template>
-              <small v-else class="muted">{{ detail.demande ? 'Une demande est déjà en attente.' : pausePossible(detail).explication }}</small>
+              <small v-else class="muted"><TexteGlossaire :texte="detail.demande ? 'Une demande est déjà en attente.' : pausePossible(detail).explication" /></small>
             </div>
           </details>
           <button v-else class="btn" :disabled="!relance(detail).possible || !!detail.demande || !!envoi" :title="relance(detail).explication"
@@ -312,7 +312,7 @@ const option = computed(() => {
             <strong>Fin de l'entraînement</strong> : au plus tard {{ quand(estimation.resteMax) }}, si les {{ detail.epoques }} époques sont faites
           </li>
           <li v-if="estimation.resteMin !== null">
-            au plus tôt {{ quand(estimation.resteMin) }}, si l'AUC ne progresse plus d'ici l'époque {{ estimation.epoqueArret }} (arrêt anticipé)
+            au plus tôt {{ quand(estimation.resteMin) }}, si l'<Sigle t="AUC" /> ne progresse plus d'ici l'époque {{ estimation.epoqueArret }} (arrêt anticipé)
           </li>
           <li v-if="estimation.resteEpoque === null && estimation.restePretraitement === null" class="muted">
             Pas encore d'estimation : il faut quelques pas d'apprentissage ({{ phase(detail.phase).toLowerCase() }} en cours).
@@ -326,9 +326,9 @@ const option = computed(() => {
       <p v-if="detail.statut === 'sans_nouvelles'" class="alert">
         Aucune nouvelle depuis longtemps : l'entraînement s'est peut-être arrêté sans le signaler (machine éteinte, processus tué).
       </p>
-      <p v-if="detail.message" :class="detail.statut === 'en_attente_gpu' ? 'attente' : 'alert'">{{ detail.message }}</p>
+      <p v-if="detail.message" :class="detail.statut === 'en_attente_gpu' ? 'attente' : 'alert'"><TexteGlossaire :texte="detail.message" /></p>
       <p v-if="detail.statut === 'en_attente_gpu'" class="small muted">
-        Le veilleur (service mammomesh-entrainement) reprendra cet entraînement à sa dernière époque finie dès que le GPU sera libre.
+        Le veilleur (service mammomesh-entrainement) reprendra cet entraînement à sa dernière époque finie dès que le <Sigle t="GPU" /> sera libre.
       </p>
       <p v-if="!detail.avec_etat && detail.statut === 'en_cours'" class="small muted">
         Cet entraînement a été lancé avant le suivi détaillé : il n'est mis à jour qu'à la fin de chaque époque.
@@ -340,8 +340,8 @@ const option = computed(() => {
       <div v-if="detail.rapport?.validation" class="resultats">
         <h3>Résultat (validation, patientes jamais vues)</h3>
         <div class="grid chiffres">
-          <div><div class="small muted">AUC par sein</div><div class="valeur">{{ fr(detail.rapport.validation.auc_sein) }}</div></div>
-          <div><div class="small muted">AUC par image</div><div class="valeur">{{ fr(detail.rapport.validation.auc_image) }}</div></div>
+          <div><div class="small muted"><Sigle t="AUC" /> par sein</div><div class="valeur">{{ fr(detail.rapport.validation.auc_sein) }}</div></div>
+          <div><div class="small muted"><Sigle t="AUC" /> par image</div><div class="valeur">{{ fr(detail.rapport.validation.auc_image) }}</div></div>
           <div><div class="small muted">Sensibilité au seuil {{ fr(detail.rapport.validation.seuil, 2) }}</div><div class="valeur">{{ fr(detail.rapport.validation.sensibilite_sein) }}</div></div>
           <div><div class="small muted">Spécificité</div><div class="valeur">{{ fr(detail.rapport.validation.specificite_sein) }}</div></div>
         </div>

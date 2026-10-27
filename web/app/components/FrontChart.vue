@@ -46,7 +46,7 @@ function onClick(e: unknown) {
     <details v-if="store.front.length" class="liste">
       <summary>Liste des individus du front ({{ store.front.length }})</summary>
       <div class="table-wrap"><table>
-        <thead><tr><th>Individu</th><th>Sensibilité (E-ajust)</th><th>Coût</th><th /></tr></thead>
+        <thead><tr><th>Individu</th><th>Sensibilité (<Sigle t="E-ajust" />)</th><th>Coût</th><th /></tr></thead>
         <tbody>
           <tr v-for="i in store.front" :key="i.id">
             <td>{{ i.name }}</td><td>{{ fr(i.sensitivity) }}</td><td>{{ fr(i.cost_ms, 0) }} ms</td>

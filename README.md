@@ -73,6 +73,29 @@ make ca    # copie ./mammomesh-root.crt
 
 Puis l'importer dans le magasin de certificats des postes ; pour Claude Code : `export NODE_EXTRA_CA_CERTS=/chemin/mammomesh-root.crt`.
 
+## Adaptation au matériel
+
+Le même dépôt tourne sur un portable comme sur un serveur multi-GPU : rien n'est réglé à la main.
+
+- **Hôte** : `make up` lance `scripts/detecter-materiel.sh`, qui choisit les profils compose (`nvidia`, `amd`, `intel`, `cpu`) selon les GPU présents et leur prise en charge par Docker (runtime `nvidia` de nvidia-container-toolkit, déclaré par `sudo nvidia-ctk runtime configure --runtime=docker`). `MAMMOMESH_ACCEL=cpu` force un choix.
+- **Processus** : `mammomesh_engine.materiel` (dans `engine/`) détecte CPU, RAM, GPU et moteurs d'inférence, limites du conteneur comprises, et en déduit un plan :
+
+| Réglage | Règle |
+|---|---|
+| Appareil | GPU dédié avec le plus de mémoire libre, puis GPU intégré, puis CPU ; un individu par GPU (jusqu'à 4 par GPU au-delà de 16 Gio) |
+| Précision | BF16 si accéléré (Ampere et suivants, Arc, CPU AMX), sinon FP16 + GradScaler (Turing, Volta), sinon FP32 ; TF32 dès Ampere |
+| Entrée et lot | image entière si un lot de 4 tient, sinon gradient checkpointing, sinon patchs de 512 à 256 px ; lot effectif atteint par accumulation |
+| Lot mesuré | `calibrer()` fait de vrais pas d'entraînement (doublements puis dichotomie, marge de 10 %) et met le résultat en cache par appareil, modèle, taille et précision |
+| Données | un cœur par entraînement, le reste en workers, bornés par la RAM libre ; `pin_memory` sur GPU |
+| Inférence | TensorRT > CUDA > OpenVINO GPU > OpenVINO CPU > ONNX Runtime CPU > PyTorch CPU ; pendant un entraînement sur un GPU de moins de 16 Gio, l'inférence passe sur le GPU Intel ou le CPU |
+
+```bash
+make materiel     # profils compose, machine vue et plan
+cd engine && python3 -m mammomesh_engine.materiel --json
+```
+
+`MAMMOMESH_MATERIEL=machine.json` simule une autre machine (même format que `--json`, clé `materiel`).
+
 ## Brancher Claude Code (MCP)
 
 1. Dans l'interface, page **Jetons MCP** : créer un jeton « lecture » ou « proposition » (90 jours, révocable).
@@ -121,12 +144,13 @@ Serveur MCP en stdio pour le développement : `MAMMOMESH_MCP_TOKEN=mmk_... go ru
 |---|---|---|
 | Unitaires Go | `make test-backend` | mots de passe, limiteur (Redis absent, gelé, rétabli), configuration et secrets, contrôles de configuration, simulation déterministe et départ, SSE, cache MCP, import DICOM (pseudonymisation, refus), test simulé, stockages (`MAMMOMESH_FILER_TEST` : vrai filer SeaweedFS) |
 | Intégration Go | `DATABASE_URL_TEST=… REDIS_URL_TEST=… make test-backend` | base remise à zéro : compte par défaut et changement imposé, origines, limitation (Redis réel), brouillon → lancement → orchestrateur, SSE et reprise `Last-Event-ID`, réglages, lectures REST, 10 outils MCP par portée, audit, révocation, repartir d'une campagne (contrôles, parents), images (import, doublons, pixels, tests, droits, purge) |
+| Moteur Python | `make test-engine` | plan d'exécution sur des machines types (portable A1000, serveur 2 × A100, CPU seul, Pascal, petit GPU, Arc, Iris Xe), lecture de `nvidia-smi`, machine simulée, calibrage du lot et cache |
 | Unitaires web | `make test-web` | Vitest en environnement Nuxt : stores campagne et session, aides des écrans, effets calculés, lexique des mutations, formules KaTeX, concordance avec `docs/` |
 | Bout en bout | `E2E_DATABASE_URL=… make e2e` | Playwright, pile complète (API, orchestrateur, Nuxt, proxy à la place de Caddy, port 14000) : présentation, refus, premier accès, campagne suivie en direct jusqu'à la fin, aides et effets des réglages, repartir d'une campagne, images (import, visionneuse, test, suppression), documentation, jetons MCP, déconnexion, affichage téléphone |
 
 DICOM réels de sources libres (fo-dicom, pydicom, TCIA) : `make exemples` puis `go test -count=1 ./internal/imagerie -run TestExemples` ; voir [examples/README.md](examples/README.md).
 
-La CI lance les quatre niveaux, avec PostgreSQL 18 et Redis 8 en services. Couverture Go mesurée : 80 % des instructions de `internal/`.
+La CI lance les cinq niveaux, avec PostgreSQL 18 et Redis 8 en services. Couverture Go mesurée : 80 % des instructions de `internal/`.
 
 ## Documentation
 

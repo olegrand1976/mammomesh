@@ -1,0 +1,19 @@
+[project]
+name = "mammomesh-engine"
+version = "0.1.0"
+description = "Moteur MammoMesh : adaptation au matériel, entraînement et inférence du couple CNN + CephaloMesh"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+# Choisir la variante de PyTorch qui correspond au matériel (CUDA, ROCm, XPU ou CPU).
+torch = ["torch>=2.5"]
+openvino = ["openvino>=2025.0"]
+onnx = ["onnxruntime>=1.20"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["mammomesh_engine*"]

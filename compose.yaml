@@ -6,6 +6,10 @@
 #   COMPOSE_PROFILES=obs docker compose up -d     # + Prometheus et Grafana
 #
 # Les services du jalon 1 (engine, triton, trainer, profils nvidia / amd / intel / cpu) s'ajouteront ici.
+# `make up` choisit ces profils selon le matériel (scripts/detecter-materiel.sh) ; dans chaque conteneur,
+# mammomesh_engine.materiel règle appareil, précision, lot et inférence (engine/).
+# Services GPU NVIDIA : `runtime: nvidia` + NVIDIA_VISIBLE_DEVICES, pas `deploy.resources.reservations.devices`
+# (= --gpus, en échec sur certains hôtes ; voir scripts/detecter-materiel.sh).
 
 name: mammomesh
 

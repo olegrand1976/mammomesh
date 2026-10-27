@@ -28,3 +28,7 @@ web/playwright-report/
 # DICOM d'exemple (examples/telecharger.sh)
 examples/github/
 examples/tcia/
+
+# Python (engine/)
+__pycache__/
+*.egg-info/

@@ -1,11 +1,17 @@
 # Raccourcis de développement. La production passe par docker compose (voir README).
-.PHONY: secrets up down logs test test-backend test-web e2e dev-api dev-orchestrator dev-web ca exemples
+.PHONY: secrets up down logs test test-backend test-web test-engine e2e dev-api dev-orchestrator dev-web ca exemples materiel
 
 secrets:
 	./scripts/init-secrets.sh
 
+# Profils compose choisis selon le matériel de l'hôte (scripts/detecter-materiel.sh).
 up: secrets
-	docker compose up -d --build
+	COMPOSE_PROFILES="$$(./scripts/detecter-materiel.sh)" docker compose up -d --build
+
+# Matériel détecté et plan d'exécution (appareil, précision, lot, inférence).
+materiel:
+	@profils="$$(./scripts/detecter-materiel.sh)" && echo "Profils compose : $$profils" && \
+	cd engine && python3 -m mammomesh_engine.materiel --docker "$$profils"
 
 down:
 	docker compose down
@@ -18,12 +24,16 @@ ca:
 	docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt ./mammomesh-root.crt
 	@echo "Certificat racine copié dans ./mammomesh-root.crt"
 
-test: test-backend test-web
+test: test-backend test-web test-engine
 
 # Tests unitaires Go ; DATABASE_URL_TEST ajoute les tests d'intégration (base remise à zéro),
 # REDIS_URL_TEST ceux qui passent par un vrai Redis.
 test-backend:
 	cd backend && go vet ./... && go test -count=1 ./...
+
+# Moteur Python : adaptation au matériel (sans PyTorch ni GPU).
+test-engine:
+	cd engine && python3 -m unittest discover -s tests -t .
 
 # Types, tests unitaires Vitest (stores, middleware), compilation.
 test-web:

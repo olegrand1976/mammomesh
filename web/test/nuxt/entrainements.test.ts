@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { avancement, duree, dureeMoyenneEpoque, estFinalise, estimer, heureFin, libelleDemande, phaseEntrainement, relance, repartir, statutEntrainement, vitesseObservee, type ResumeEntrainement } from '~/utils/entrainements'
+import { aideReglages, avancement, duree, dureeMoyenneEpoque, estFinalise, estimer, heureFin, libelleDemande, phaseEntrainement, relance, repartir, statutEntrainement, vitesseObservee, type ResumeEntrainement } from '~/utils/entrainements'
 
 const racine = resolve(__dirname, '../..')
 
@@ -89,6 +89,17 @@ describe('suivi des entraînements', () => {
       expect(libelleDemande[a], a).toBeDefined()
       expect(auto, a).toContain(`action == "${a}"`)
     }
+  })
+
+  it('nouvel entraînement : mêmes réglages dans l\'interface, l\'API et le veilleur', () => {
+    const go = readFileSync(resolve(racine, '../backend/internal/entrainements/demandes.go'), 'utf8')
+    const champsGo = [...go.slice(go.indexOf('type Reglages struct')).split('}')[0]!.matchAll(/json:"([a-z_]+)"/g)].map(m => m[1]!)
+    expect(Object.keys(aideReglages).sort()).toEqual(champsGo.sort())
+    const auto = readFileSync(resolve(racine, '../engine/mammomesh_engine/cnn/auto.py'), 'utf8')
+    const bloc = auto.slice(auto.indexOf('REGLAGES_INTERFACE = {')).split('}')[0]!
+    for (const k of champsGo) expect(bloc, k).toContain(`"${k}"`)
+    expect(go).toMatch(/Nouveau\s+= "nouveau"/)
+    expect(auto).toContain('action == "nouveau"')
   })
 
   it('durées', () => {

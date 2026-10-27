@@ -199,7 +199,9 @@ class Veilleur:
             except (OSError, ValueError):
                 nom, action, par = "", None, "?"
             d = self.modeles / nom
-            if not NOM_VALIDE.match(nom) or not d.is_dir():
+            if action == "nouveau":
+                self.nouveau(dem.get("reglages") or {}, par)
+            elif not NOM_VALIDE.match(nom) or not d.is_dir():
                 self.journal(f"demande ignorée ({f.name}) : entraînement introuvable")
             elif action == "supprimer":
                 self.supprimer(d, par)
@@ -255,6 +257,10 @@ class Veilleur:
         nouveau = nouvel_entrainement(self.modeles, d, par)
         self.journal(f"{d.name} : relancé en {nouveau.name} (demande de {par})")
 
+    def nouveau(self, reglages: dict, par: str) -> None:
+        d = nouvel_entrainement(self.modeles, None, par, reglages)
+        self.journal(f"nouvel entraînement {d.name} (demande de {par})")
+
     # ---------- boucle ----------
 
     def tour(self) -> None:
@@ -265,12 +271,28 @@ class Veilleur:
             self.verifier()
 
 
-def nouvel_entrainement(modeles: Path, source: Path, par: str) -> Path:
-    """Nouveau dossier avec les réglages de `source` (parametres.json, sinon sa commande, sinon ceux par défaut),
-    mis en file d'attente : le veilleur le lancera quand le GPU sera libre."""
-    from .__main__ import _ecrire_reglages, analyseur
+# Réglages qu'une demande « nouveau » de l'interface peut fixer (le reste vient du serveur : banque, cache).
+REGLAGES_INTERFACE = {"epoques": int, "patience": int, "lr": float, "graine": int, "sensibilite_cible": float,
+                      "limite": int, "sans_preentrainement": bool, "resolution": str}
+
+
+def nouvel_entrainement(modeles: Path, source: Path | None, par: str, reglages: dict | None = None) -> Path:
+    """Nouveau dossier, mis en file d'attente : le veilleur le lancera quand le GPU sera libre.
+    Réglages : ceux de `source` (parametres.json, sinon sa commande), sinon ceux par défaut, puis `reglages`."""
+    from .__main__ import CLINIQUE_REL, _ecrire_reglages, _taille, analyseur
     a = analyseur().parse_args([])
-    if (source / "parametres.json").exists():
+    for k, v in (reglages or {}).items():
+        if k not in REGLAGES_INTERFACE or v is None:
+            continue
+        if k == "resolution":
+            a.resolution = _taille(str(v))
+        elif k == "limite":
+            a.limite = int(v) or None
+        else:
+            setattr(a, k, REGLAGES_INTERFACE[k](v))
+    if source is None:
+        pass
+    elif (source / "parametres.json").exists():
         r = json.loads((source / "parametres.json").read_text(encoding="utf-8"))
         for k, v in r.items():
             if hasattr(a, k) and v is not None:
@@ -285,9 +307,17 @@ def nouvel_entrainement(modeles: Path, source: Path, par: str) -> Path:
     while d.exists():
         d, k = modeles / f"{nom}-{k}", k + 1
     _ecrire_reglages(a, d)
-    ecrire_etat(d, {"version": 1, "statut": EN_ATTENTE, "phase": "preparation", "debut": maintenant(), "maj": maintenant(),
-                    "jeu": "CMMD", "file_attente": True, "source": source.name,
-                    "message": f"Relance de {source.name} demandée par {par} : en attente du GPU"})
+    quoi = f"Relance de {source.name}" if source else "Nouvel entraînement"
+    etat = {"version": 1, "statut": EN_ATTENTE, "phase": "preparation", "debut": maintenant(), "maj": maintenant(),
+            "jeu": "CMMD", "file_attente": True, "demande_par": par, "epoques": a.epoques,
+            "message": f"{quoi} demandé par {par} : en attente du GPU"}
+    if source:
+        etat["source"] = source.name
+    if not (Path(a.banque) / CLINIQUE_REL).exists():
+        etat.update(statut="echec", tentatives_auto=TENTATIVES_MAX, fin=maintenant(),
+                    message=f"Banque introuvable : {Path(a.banque) / CLINIQUE_REL} (lancer ./examples/telecharger.sh --banque CMMD,"
+                            " ou régler BANQUE_DIR du service mammomesh-entrainement)")
+    ecrire_etat(d, etat)
     return d
 
 

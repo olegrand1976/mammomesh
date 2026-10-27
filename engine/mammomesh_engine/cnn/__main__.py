@@ -14,6 +14,7 @@ from .suivi import Suivi
 
 DEPOT = Path(__file__).resolve().parents[3]
 PARAMETRES = "parametres.json"
+CLINIQUE_REL = Path("tcia") / "CMMD" / cmmd.CLINIQUE   # présence de CMMD dans une banque
 REGLAGES = ("banque", "cache", "resolution", "epoques", "lot_effectif", "patience", "lr", "graine",
             "sensibilite_cible", "limite", "appareil", "sans_preentrainement", "sans_compile")
 

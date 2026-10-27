@@ -14,8 +14,10 @@ import (
 // Suivi des entraînements du CNN : lecture seule de MODELES_DIR, ouvert à tous les rôles.
 
 func (s *Server) listEntrainements(w http.ResponseWriter, r *http.Request) {
+	commun := map[string]any{"reglages_defaut": entrainements.ReglagesParDefaut(), "resolutions": entrainements.Resolutions}
 	if s.cfg.ModelesDir == "" {
-		writeJSON(w, http.StatusOK, map[string]any{"configure": false, "entrainements": []entrainements.Resume{}})
+		commun["configure"], commun["entrainements"], commun["nouveaux_en_attente"] = false, []entrainements.Resume{}, []entrainements.Demande{}
+		writeJSON(w, http.StatusOK, commun)
 		return
 	}
 	l, err := entrainements.Lister(s.cfg.ModelesDir, time.Now())
@@ -24,7 +26,8 @@ func (s *Server) listEntrainements(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "dossier des entraînements illisible")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"configure": true, "entrainements": l})
+	commun["configure"], commun["entrainements"], commun["nouveaux_en_attente"] = true, l, entrainements.NouveauxEnAttente(s.cfg.ModelesDir)
+	writeJSON(w, http.StatusOK, commun)
 }
 
 func (s *Server) getEntrainement(w http.ResponseWriter, r *http.Request) {
@@ -76,6 +79,37 @@ func (s *Server) demanderEntrainement(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 	default:
 		s.st.Audit(r.Context(), u.ID, "interface", "entrainement."+dem.Action, map[string]any{"entrainement": nom})
+		writeJSON(w, http.StatusAccepted, map[string]any{"demande": dem})
+	}
+}
+
+// nouvelEntrainement dépose la demande d'un nouvel entraînement ; le veilleur le crée et le lance
+// dès que le GPU est libre.
+func (s *Server) nouvelEntrainement(w http.ResponseWriter, r *http.Request) {
+	u := userFrom(r.Context())
+	if !auth.CanManageTrainings(u.Role) {
+		writeError(w, http.StatusForbidden, "rôle insuffisant")
+		return
+	}
+	if s.cfg.ModelesDir == "" {
+		writeError(w, http.StatusNotFound, "suivi des entraînements non configuré (MODELES_DIR)")
+		return
+	}
+	in := entrainements.ReglagesParDefaut()
+	if !readJSON(w, r, &in) {
+		return
+	}
+	dem, err := entrainements.DemanderNouveau(s.cfg.ModelesDir, in, u.Username, time.Now())
+	var invalide entrainements.InvalideError
+	switch {
+	case errors.As(err, &invalide):
+		writeError(w, http.StatusBadRequest, invalide.Error())
+	case errors.Is(err, entrainements.ErrDemandesFermees):
+		writeError(w, http.StatusServiceUnavailable, err.Error())
+	case err != nil:
+		s.fail(w, err)
+	default:
+		s.st.Audit(r.Context(), u.ID, "interface", "entrainement.nouveau", in)
 		writeJSON(w, http.StatusAccepted, map[string]any{"demande": dem})
 	}
 }

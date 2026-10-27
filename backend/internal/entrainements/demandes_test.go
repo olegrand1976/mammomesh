@@ -60,3 +60,40 @@ func TestDemandes(t *testing.T) {
 		t.Fatal("pas de parametres.json")
 	}
 }
+
+func TestNouveau(t *testing.T) {
+	d := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(d, DossierDemandes), 0o777); err != nil {
+		t.Fatal(err)
+	}
+	r := ReglagesParDefaut()
+	if err := r.Verifier(); err != nil {
+		t.Fatalf("réglages par défaut refusés : %v", err)
+	}
+	for _, mauvais := range []func(*Reglages){
+		func(r *Reglages) { r.Epoques = 0 }, func(r *Reglages) { r.Resolution = "4000x3000" },
+		func(r *Reglages) { r.Patience = 99 }, func(r *Reglages) { r.LR = 1 },
+		func(r *Reglages) { r.SensibiliteCible = 1 }, func(r *Reglages) { r.Limite = 3 }, func(r *Reglages) { r.Graine = -1 },
+	} {
+		x := ReglagesParDefaut()
+		mauvais(&x)
+		var inv InvalideError
+		if _, err := DemanderNouveau(d, x, "marie", t0); !errors.As(err, &inv) {
+			t.Fatalf("réglages %+v acceptés : %v", x, err)
+		}
+	}
+	r.Limite, r.Epoques = 100, 2
+	dem, err := DemanderNouveau(d, r, "marie", t0)
+	if err != nil || dem.Reglages == nil || dem.Reglages.Epoques != 2 || dem.Nom != "" {
+		t.Fatalf("nouveau : %+v %v", dem, err)
+	}
+	if _, err := DemanderNouveau(d, r, "paul", t0.Add(time.Second)); err != nil {
+		t.Fatalf("deux nouveaux à la suite : %v", err)
+	}
+	if n := NouveauxEnAttente(d); len(n) != 2 || n[0].Par != "marie" {
+		t.Fatalf("nouveaux en attente : %+v", n)
+	}
+	if len(Demandes(d)) != 0 {
+		t.Fatal("un nouveau ne se rattache à aucun entraînement existant")
+	}
+}

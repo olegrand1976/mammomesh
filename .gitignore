@@ -45,3 +45,6 @@ banque/
 /modeles/.demandes/*
 !/modeles/.demandes/.gitkeep
 engine/.venv/
+
+# Journaux de scripts/installer-serveur.sh
+/installation-*.log

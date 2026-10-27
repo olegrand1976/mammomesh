@@ -1,5 +1,6 @@
 """Veilleur de reprise : GPU libre ou occupé, choix de l'entraînement à reprendre, suivi repris (sans PyTorch)."""
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -79,8 +80,18 @@ class DemandesTest(unittest.TestCase):
         self.r = Path(self._tmp.name)
         (self.r / auto.DEMANDES).mkdir()
         self.v = auto.Veilleur(self.r, journal=lambda m: None)
+        self.banque = self.r / "banque"
+        clinique = self.banque / "tcia" / "CMMD" / "metadonnees" / "CMMD_clinicaldata_revision.xlsx"
+        clinique.parent.mkdir(parents=True)
+        clinique.write_text("")
+        self._env = os.environ.get("BANQUE_DIR")
+        os.environ["BANQUE_DIR"] = str(self.banque)   # banque par défaut des nouveaux entraînements
 
     def tearDown(self):
+        if self._env is None:
+            os.environ.pop("BANQUE_DIR", None)
+        else:
+            os.environ["BANQUE_DIR"] = self._env
         self._tmp.cleanup()
 
     def demander(self, nom, action, k=1):
@@ -102,7 +113,7 @@ class DemandesTest(unittest.TestCase):
         (self.r / "entrainement-cmmd-1.log").write_text("x")
         self.demander("cnn-cmmd-1", "supprimer")
         self.v.demandes()
-        self.assertEqual(sorted(p.name for p in self.r.iterdir()), [auto.DEMANDES])
+        self.assertEqual(sorted(p.name for p in self.r.iterdir()), [auto.DEMANDES, "banque"])
         self.assertEqual(list((self.r / auto.DEMANDES).iterdir()), [])
 
     def test_reprendre_apres_ctrl_c(self):
@@ -115,14 +126,14 @@ class DemandesTest(unittest.TestCase):
 
     def test_relancer_un_entrainement_fini_cree_un_nouveau(self):
         self.entrainement("cnn-cmmd-3", {"statut": "termine"}, rapport=True,
-                          parametres={"banque": "/b", "cache": "/c", "resolution": [768, 624], "epoques": 7, "lot_effectif": 32,
+                          parametres={"banque": str(self.banque), "cache": "/c", "resolution": [768, 624], "epoques": 7, "lot_effectif": 32,
                                       "patience": 3, "lr": 0.001, "graine": 1, "sensibilite_cible": 0.9})
         self.demander("cnn-cmmd-3", "relancer")
         self.v.demandes()
         nouveaux = [p for p in self.r.iterdir() if p.name.startswith("cnn-cmmd-2")]
         self.assertEqual(len(nouveaux), 1)
         p = json.loads((nouveaux[0] / "parametres.json").read_text())
-        self.assertEqual((p["epoques"], p["resolution"], p["patience"], p["banque"]), (7, [768, 624], 3, "/b"))
+        self.assertEqual((p["epoques"], p["resolution"], p["patience"], p["banque"]), (7, [768, 624], 3, str(self.banque)))
         e = lire_etat(nouveaux[0])
         self.assertEqual((e["statut"], e["file_attente"], e["source"]), (auto.EN_ATTENTE, True, "cnn-cmmd-3"))
         # Premier départ : ce n'est pas une reprise.
@@ -137,6 +148,27 @@ class DemandesTest(unittest.TestCase):
         self.assertEqual(json.loads((nouveau / "parametres.json").read_text())["epoques"], 9)
         # Deux relances dans la même minute : deux dossiers distincts.
         self.assertNotEqual(auto.nouvel_entrainement(self.r, self.r / "cnn-cmmd-4", "x"), nouveau)
+
+    def test_nouveau_depuis_l_interface(self):
+        (self.r / auto.DEMANDES / "1-nouveau.json").write_text(json.dumps({"action": "nouveau", "par": "marie", "reglages": {
+            "epoques": 3, "resolution": "512x416", "patience": 2, "lr": 0.001, "graine": 7, "sensibilite_cible": 0.9,
+            "limite": 0, "sans_preentrainement": True, "inconnu": "ignoré"}}))
+        self.v.demandes()
+        d = next(p for p in self.r.iterdir() if p.name.startswith("cnn-cmmd-"))
+        p = json.loads((d / "parametres.json").read_text())
+        self.assertEqual((p["epoques"], p["resolution"], p["patience"], p["lr"], p["graine"], p["limite"], p["sans_preentrainement"]),
+                         (3, [512, 416], 2, 0.001, 7, None, True))
+        e = lire_etat(d)
+        self.assertEqual((e["statut"], e["demande_par"]), (auto.EN_ATTENTE, "marie"))
+        self.assertNotIn("source", e)
+
+    def test_nouveau_sans_banque(self):
+        os.environ["BANQUE_DIR"] = str(self.r / "absente")
+        d = auto.nouvel_entrainement(self.r, None, "marie", {"epoques": 2})
+        e = lire_etat(d)
+        self.assertEqual(e["statut"], "echec")
+        self.assertIn("Banque introuvable", e["message"])
+        self.assertEqual(auto.a_reprendre(self.r, vivant=lambda _: False), [])
 
     def test_demandes_invalides(self):
         self.demander("../etc", "supprimer")

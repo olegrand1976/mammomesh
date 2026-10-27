@@ -102,6 +102,7 @@ func (s *Server) Router() http.Handler {
 			r.Get("/api/images/{id}/tests", s.listImageTests)
 			r.Post("/api/images/{id}/tests", s.testImage)
 			r.Get("/api/entrainements", s.listEntrainements)
+			r.Post("/api/entrainements", s.nouvelEntrainement)
 			r.Get("/api/entrainements/{nom}", s.getEntrainement)
 			r.Post("/api/entrainements/{nom}/demandes", s.demanderEntrainement)
 		})

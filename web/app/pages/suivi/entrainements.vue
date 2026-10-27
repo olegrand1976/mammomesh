@@ -2,7 +2,7 @@
 import { fr } from '~/types'
 import {
   avancement, duree, estimer, heureFin, libelleDemande, phaseEntrainement, relance, repartir, statutEntrainement, vitesseObservee,
-  type DetailEntrainement, type Releve, type ResumeEntrainement, type VueEntrainements,
+  aideReglages, type DemandeNouveau, type DetailEntrainement, type ReglagesEntrainement, type Releve, type ResumeEntrainement, type VueEntrainements,
 } from '~/utils/entrainements'
 
 definePageMeta({ layout: 'suivi', middleware: 'auth' })
@@ -12,6 +12,11 @@ const { api } = useApi()
 const session = useSessionStore()
 const envoi = ref('')
 const info = ref('')
+const nouveaux = ref<DemandeNouveau[]>([])
+const formulaire = ref(false)
+const reglages = ref<ReglagesEntrainement | null>(null)
+const resolutions = ref<string[]>([])
+let defaut: ReglagesEntrainement | null = null
 const route = useRoute()
 const router = useRouter()
 const p = usePalette()
@@ -36,9 +41,13 @@ const releves = ref<(Releve & { nom: string })[]>([])
 
 async function charger() {
   try {
-    const r = await api<{ configure: boolean; entrainements: ResumeEntrainement[] }>('/entrainements')
+    const r = await api<{ configure: boolean; entrainements: ResumeEntrainement[]; nouveaux_en_attente: DemandeNouveau[];
+      reglages_defaut: ReglagesEntrainement; resolutions: string[] }>('/entrainements')
     liste.value = r.entrainements
     configure.value = r.configure
+    nouveaux.value = r.nouveaux_en_attente ?? []
+    defaut = r.reglages_defaut
+    resolutions.value = r.resolutions
     detail.value = choisi.value
       ? (await api<{ entrainement: DetailEntrainement }>(`/entrainements/${encodeURIComponent(choisi.value)}`)).entrainement
       : null
@@ -71,6 +80,27 @@ const finListe = (e: ResumeEntrainement) => {
   const r = estimer(e, maintenant.value).resteMax
   return r === null ? '—' : heureFin(maintenant.value, r)
 }
+function ouvrirFormulaire() {
+  reglages.value = defaut ? { ...defaut } : null
+  formulaire.value = true
+}
+
+async function lancerNouveau() {
+  if (!reglages.value) return
+  envoi.value = 'nouveau'
+  try {
+    await api('/entrainements', { method: 'POST', body: { ...reglages.value } })
+    info.value = 'Nouvel entraînement demandé : il apparaîtra dans « En cours » et partira dès que le GPU sera libre.'
+    formulaire.value = false
+    await router.replace({ query: { vue: 'en-cours' } })
+    await charger()
+  } catch (e) {
+    erreur.value = (e as Error).message
+  } finally {
+    envoi.value = ''
+  }
+}
+
 async function demander(action: 'relancer' | 'supprimer') {
   const d = detail.value
   if (!d) return
@@ -120,7 +150,13 @@ const option = computed(() => {
 
 <template>
   <div>
-    <div class="row head"><h1>Entraînements du CNN</h1></div>
+    <div class="row head">
+      <h1>Entraînements du CNN</h1>
+      <div class="spacer" />
+      <button v-if="session.permissions?.gerer_entrainements && configure" class="btn btn-primary" :disabled="formulaire" @click="ouvrirFormulaire">
+        Nouvel entraînement
+      </button>
+    </div>
     <p class="muted small intro">
       Suivi des entraînements lancés avec <code>python -m mammomesh_engine.cnn</code>, rafraîchi toutes les 5 secondes.
       Les mesures se font sur l'ensemble d'ajustement (E-ajust) ; la validation (E-val) n'est mesurée qu'à la fin, sur des patientes jamais vues.
@@ -155,14 +191,47 @@ const option = computed(() => {
       avec Docker, le dossier <code>./modeles</code> est monté d'office).
     </p>
 
+    <form v-if="formulaire && reglages" class="card nouveau" @submit.prevent="lancerNouveau">
+      <h2>Nouvel entraînement</h2>
+      <p class="small muted">
+        Sur la banque CMMD du serveur. La demande va au veilleur (service mammomesh-entrainement), qui lance l'entraînement
+        dès que le GPU est libre ; il apparaît aussitôt dans « En cours ». Les valeurs proposées sont celles par défaut.
+      </p>
+      <div class="grid champs">
+        <label v-for="cle in (['epoques', 'patience', 'limite', 'lr', 'sensibilite_cible', 'graine'] as const)" :key="cle">
+          <span>{{ aideReglages[cle].libelle }}</span>
+          <input v-model.number="reglages[cle]" type="number" required
+            :step="cle === 'lr' ? 0.00001 : cle === 'sensibilite_cible' ? 0.01 : 1" :min="cle === 'lr' ? 0.00001 : 0">
+          <small class="muted">{{ aideReglages[cle].aide }}</small>
+        </label>
+        <label>
+          <span>{{ aideReglages.resolution.libelle }}</span>
+          <select v-model="reglages.resolution"><option v-for="r in resolutions" :key="r" :value="r">{{ r.replace('x', ' × ') }}</option></select>
+          <small class="muted">{{ aideReglages.resolution.aide }}</small>
+        </label>
+        <label class="case">
+          <span><input v-model="reglages.sans_preentrainement" type="checkbox"> {{ aideReglages.sans_preentrainement.libelle }}</span>
+          <small class="muted">{{ aideReglages.sans_preentrainement.aide }}</small>
+        </label>
+      </div>
+      <div class="row actions">
+        <button class="btn btn-primary" type="submit" :disabled="!!envoi">{{ envoi === 'nouveau' ? 'Envoi…' : 'Lancer' }}</button>
+        <button class="btn" type="button" @click="formulaire = false">Annuler</button>
+      </div>
+    </form>
+
     <nav class="onglets" aria-label="Entraînements">
       <NuxtLink v-for="o in onglets" :key="o.cle" :to="{ query: { vue: o.cle } }" :class="{ actif: vue === o.cle }"
         :aria-current="vue === o.cle ? 'page' : undefined">
-        {{ o.libelle }} <span class="compte">{{ groupes[o.cle].length }}</span>
+        {{ o.libelle }} <span class="compte">{{ groupes[o.cle].length + (o.cle === 'en-cours' ? nouveaux.length : 0) }}</span>
       </NuxtLink>
     </nav>
 
     <section class="card">
+      <p v-for="n in (vue === 'en-cours' ? nouveaux : [])" :key="n.date" class="attente">
+        Nouvel entraînement demandé par {{ n.par }} le {{ date(n.date) }} ({{ n.reglages.epoques }} époques, {{ n.reglages.resolution.replace('x', ' × ') }}) :
+        le veilleur le crée dans quelques secondes. S'il ne tourne pas, rien ne se passera.
+      </p>
       <div v-if="affiches.length" class="table-wrap"><table>
         <thead><tr><th>Entraînement</th><th>État</th><th>Phase</th><th>Époque</th><th>Meilleure AUC (ajustement)</th><th class="hide-sm">AUC validation</th><th v-if="vue === 'en-cours'">Fin estimée</th><th class="hide-sm">{{ vue === 'finalises' ? 'Fin' : 'Dernière nouvelle' }}</th></tr></thead>
         <tbody>
@@ -181,7 +250,7 @@ const option = computed(() => {
           </tr>
         </tbody>
       </table></div>
-      <p v-else-if="configure" class="muted">{{ vue === 'en-cours' ? 'Aucun entraînement en cours.' : 'Aucun entraînement finalisé pour l\'instant.' }}</p>
+      <p v-else-if="configure && !(vue === 'en-cours' && nouveaux.length)" class="muted">{{ vue === 'en-cours' ? 'Aucun entraînement en cours.' : 'Aucun entraînement finalisé pour l\'instant.' }}</p>
     </section>
 
     <section v-if="detail" class="card">
@@ -286,6 +355,12 @@ const option = computed(() => {
 .valeur { font-size: 1.3rem; font-weight: 600; }
 .plan pre { white-space: pre-wrap; font-size: 0.8rem; }
 tr.choisi td { background: var(--surface-2); }
+.nouveau h2 { margin-top: 0; }
+.champs { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 12px 0; }
+.champs label { display: grid; gap: 4px; }
+.champs label > span { font-weight: 600; font-size: 0.9rem; }
+.champs .case > span { font-weight: 500; }
+.actions { gap: 8px; }
 .cnn summary { cursor: pointer; font-weight: 600; }
 .cnn p, .cnn ul { margin: 10px 0 0; }
 .cnn ul { padding-left: 20px; display: grid; gap: 4px; }

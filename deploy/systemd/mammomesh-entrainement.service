@@ -10,6 +10,8 @@ After=default.target
 Type=simple
 WorkingDirectory=@DEPOT@/engine
 Environment=PYTHONUNBUFFERED=1
+# Banque des nouveaux entraînements demandés depuis l'interface (BANQUE_DIR lors de l'installation).
+Environment=BANQUE_DIR=@BANQUE_DIR@
 ExecStart=@DEPOT@/engine/.venv/bin/python -m mammomesh_engine.cnn.auto
 Restart=always
 RestartSec=60

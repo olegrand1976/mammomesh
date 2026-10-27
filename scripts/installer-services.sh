@@ -3,13 +3,17 @@
 #   mammomesh-pile          : pile Docker au démarrage de la machine ;
 #   mammomesh-entrainement  : reprise automatique des entraînements du CNN dès que le GPU est libre.
 #   ./scripts/installer-services.sh             installe, active et démarre
+#   ./scripts/installer-services.sh --sans-demarrer   active pour le prochain démarrage seulement
 #   ./scripts/installer-services.sh --retirer   arrête et retire
+# BANQUE_DIR=/disque/banque : banque des entraînements lancés depuis l'interface (défaut : ./banque du dépôt).
 set -euo pipefail
 DEPOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEST="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 SERVICES=(mammomesh-pile mammomesh-entrainement)
 alerte() { echo "  ! $*"; }
 
+DEMARRER=1
+[[ "${1:-}" == "--sans-demarrer" ]] && DEMARRER=0
 if [[ "${1:-}" == "--retirer" ]]; then
   for s in "${SERVICES[@]}"; do
     systemctl --user disable --now "$s.service" 2>/dev/null || true
@@ -42,11 +46,15 @@ fi
 echo "== Installation dans $DEST"
 mkdir -p "$DEST"
 for s in "${installer[@]}"; do
-  sed "s#@DEPOT@#$DEPOT#g" "$DEPOT/deploy/systemd/$s.service" > "$DEST/$s.service"
+  sed -e "s#@DEPOT@#$DEPOT#g" -e "s#@BANQUE_DIR@#${BANQUE_DIR:-$DEPOT/banque}#g" "$DEPOT/deploy/systemd/$s.service" > "$DEST/$s.service"
   echo "  $s.service"
 done
 systemctl --user daemon-reload
 systemctl --user enable "${installer[@]/%/.service}"
+if [[ $DEMARRER == 0 ]]; then
+  echo "Services activés : ils démarreront avec la machine."
+  exit 0
+fi
 systemctl --user restart mammomesh-pile.service &   # peut construire des images : on n'attend pas
 for s in "${installer[@]}"; do
   [[ "$s" == mammomesh-pile ]] || systemctl --user restart "$s.service"

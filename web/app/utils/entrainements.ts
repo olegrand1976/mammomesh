@@ -122,6 +122,33 @@ export function duree(secondes: number | null | undefined): string {
   return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`
 }
 
+// ---------- Nouvel entraînement ----------
+
+export interface ReglagesEntrainement {
+  epoques: number
+  resolution: string
+  patience: number
+  lr: number
+  graine: number
+  sensibilite_cible: number
+  limite: number
+  sans_preentrainement: boolean
+}
+
+/** Aide de chaque réglage du formulaire « Nouvel entraînement ». */
+export const aideReglages: Record<keyof ReglagesEntrainement, { libelle: string; aide: string }> = {
+  epoques: { libelle: 'Époques (au plus)', aide: 'Nombre maximal de passages sur toutes les images d\'entraînement (1 à 100). L\'arrêt anticipé peut finir avant.' },
+  patience: { libelle: 'Patience', aide: 'Arrêt anticipé : on s\'arrête si l\'AUC en ajustement ne progresse plus pendant ce nombre d\'époques (1 à 50).' },
+  resolution: { libelle: 'Résolution', aide: 'Taille des images vues par le CNN. Plus grande : plus de détails (microcalcifications), mais plus lent et plus de mémoire GPU.' },
+  limite: { libelle: 'Patientes (0 = toutes)', aide: 'Pour un essai rapide, limiter le nombre de patientes (10 au moins) ; 0 pour toute la banque.' },
+  lr: { libelle: 'Taux d\'apprentissage', aide: 'Taille des pas de correction (0,00001 à 0,01). Trop grand : apprentissage instable ; trop petit : très lent.' },
+  sensibilite_cible: { libelle: 'Sensibilité cible', aide: 'Part des seins malins à détecter (0,50 à 0,99) : fixe le seuil choisi en ajustement.' },
+  graine: { libelle: 'Graine', aide: 'Fixe le découpage des patientes et le hasard de l\'entraînement : même graine, même tirage.' },
+  sans_preentrainement: { libelle: 'Partir de zéro (sans poids ImageNet)', aide: 'Sans les poids appris sur des photos ordinaires : plus lent à apprendre, mais sans dépendre de leur licence (non commerciale).' },
+}
+
+export interface DemandeNouveau { action: 'nouveau'; par: string; date: string; reglages: ReglagesEntrainement }
+
 // ---------- Relancer, supprimer ----------
 
 /** Libellé et explication du bouton « Relancer » selon ce que le veilleur fera. */

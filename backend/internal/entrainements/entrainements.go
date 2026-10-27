@@ -69,6 +69,9 @@ type Resume struct {
 	DebutEpoque  *time.Time `json:"debut_epoque,omitempty"`
 	DebutPhase   *time.Time `json:"debut_phase,omitempty"`
 	Patience     int        `json:"patience,omitempty"`
+	// Actions possibles : les réglages du lancement (parametres.json) permettent une reprise exacte.
+	AvecParametres bool     `json:"avec_parametres"`
+	Demande        *Demande `json:"demande,omitempty"` // action en attente du veilleur
 }
 
 // Detail : la page d'un entraînement.
@@ -115,6 +118,7 @@ func Lister(dossier string, maintenant time.Time) ([]Resume, error) {
 		return nil, err
 	}
 	out := []Resume{}
+	demandes := Demandes(dossier)
 	for _, e := range entrees {
 		if !e.IsDir() || !nomValide.MatchString(e.Name()) {
 			continue
@@ -122,6 +126,9 @@ func Lister(dossier string, maintenant time.Time) ([]Resume, error) {
 		d, err := lire(dossier, e.Name(), maintenant)
 		if err != nil {
 			continue // dossier illisible : ignoré plutôt que de bloquer la liste
+		}
+		if dem, ok := demandes[d.Nom]; ok {
+			d.Demande = &dem
 		}
 		out = append(out, d.Resume)
 	}
@@ -144,7 +151,13 @@ func Lire(dossier, nom string, maintenant time.Time) (Detail, error) {
 	if !nomValide.MatchString(nom) {
 		return Detail{}, ErrIntrouvable
 	}
-	return lire(dossier, nom, maintenant)
+	d, err := lire(dossier, nom, maintenant)
+	if err == nil {
+		if dem, ok := Demandes(dossier)[nom]; ok {
+			d.Demande = &dem
+		}
+	}
+	return d, err
 }
 
 func lire(dossier, nom string, maintenant time.Time) (Detail, error) {
@@ -159,6 +172,7 @@ func lire(dossier, nom string, maintenant time.Time) (Detail, error) {
 	d := Detail{Resume: Resume{Nom: nom, Statut: EnCours, Phase: "preparation"}, Journal: []Epoque{}}
 	derniere := info.ModTime()
 
+	_, _, d.AvecParametres = lireFichier(rep, "parametres.json")
 	if b, mt, ok := lireFichier(rep, "journal.csv"); ok {
 		d.Journal = lireJournal(b)
 		if mt.After(derniere) {

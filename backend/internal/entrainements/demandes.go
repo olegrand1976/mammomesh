@@ -20,6 +20,7 @@ const DossierDemandes = ".demandes"
 const (
 	Relancer  = "relancer"  // reprendre là où il s'est arrêté, ou relancer avec les mêmes réglages
 	Supprimer = "supprimer" // arrêter s'il tourne, puis effacer le dossier et son journal
+	Nouveau   = "nouveau"   // nouvel entraînement, avec les réglages donnés, en file d'attente du GPU
 )
 
 // Erreurs des demandes.
@@ -32,15 +33,89 @@ var (
 
 // Demande : une action en attente du veilleur.
 type Demande struct {
-	Action string    `json:"action"`
-	Nom    string    `json:"nom"`
-	Par    string    `json:"par"`
-	Date   time.Time `json:"date"`
+	Action   string    `json:"action"`
+	Nom      string    `json:"nom,omitempty"`
+	Par      string    `json:"par"`
+	Date     time.Time `json:"date"`
+	Reglages *Reglages `json:"reglages,omitempty"` // action « nouveau » seulement
 }
 
-// Demandes renvoie les demandes en attente, par entraînement (la plus ancienne si plusieurs).
+// Reglages d'un nouvel entraînement, mêmes noms que les options de python -m mammomesh_engine.cnn.
+// La banque est celle du serveur (BANQUE_DIR du veilleur, sinon ./banque).
+type Reglages struct {
+	Epoques             int     `json:"epoques"`
+	Resolution          string  `json:"resolution"`
+	Patience            int     `json:"patience"`
+	LR                  float64 `json:"lr"`
+	Graine              int     `json:"graine"`
+	SensibiliteCible    float64 `json:"sensibilite_cible"`
+	Limite              int     `json:"limite"` // patientes, 0 = toutes (sinon essai rapide)
+	SansPreentrainement bool    `json:"sans_preentrainement"`
+}
+
+// ReglagesParDefaut : ceux de python -m mammomesh_engine.cnn sans option.
+func ReglagesParDefaut() Reglages {
+	return Reglages{Epoques: 15, Resolution: "1024x832", Patience: 5, LR: 3e-4, Graine: 42, SensibiliteCible: 0.85}
+}
+
+// Resolutions proposées : celles que le moteur sait descendre si la mémoire manque.
+var Resolutions = []string{"1024x832", "768x624", "512x416"}
+
+// InvalideError : réglage hors plage.
+type InvalideError struct{ Msg string }
+
+func (e InvalideError) Error() string { return e.Msg }
+
+// Verifier contrôle chaque réglage.
+func (r Reglages) Verifier() error {
+	bon := false
+	for _, x := range Resolutions {
+		bon = bon || r.Resolution == x
+	}
+	switch {
+	case r.Epoques < 1 || r.Epoques > 100:
+		return InvalideError{"époques : de 1 à 100"}
+	case !bon:
+		return InvalideError{"résolution : " + strings.Join(Resolutions, ", ")}
+	case r.Patience < 1 || r.Patience > 50:
+		return InvalideError{"patience : de 1 à 50 époques"}
+	case r.LR < 1e-5 || r.LR > 1e-2:
+		return InvalideError{"taux d'apprentissage : de 0,00001 à 0,01"}
+	case r.Graine < 0 || r.Graine > 1<<31-1:
+		return InvalideError{"graine : entier positif"}
+	case r.SensibiliteCible < 0.5 || r.SensibiliteCible > 0.99:
+		return InvalideError{"sensibilité cible : de 0,50 à 0,99"}
+	case r.Limite != 0 && (r.Limite < 10 || r.Limite > 100000):
+		return InvalideError{"limite : 0 (toutes les patientes) ou de 10 à 100 000"}
+	}
+	return nil
+}
+
+// Demandes renvoie les demandes en attente sur un entraînement existant, par entraînement
+// (la plus ancienne si plusieurs).
 func Demandes(dossier string) map[string]Demande {
 	out := map[string]Demande{}
+	for _, d := range toutes(dossier) {
+		if _, deja := out[d.Nom]; !deja && d.Nom != "" {
+			out[d.Nom] = d
+		}
+	}
+	return out
+}
+
+// NouveauxEnAttente : nouveaux entraînements demandés que le veilleur n'a pas encore créés.
+func NouveauxEnAttente(dossier string) []Demande {
+	out := []Demande{}
+	for _, d := range toutes(dossier) {
+		if d.Action == Nouveau {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+func toutes(dossier string) []Demande {
+	out := []Demande{}
 	entrees, err := os.ReadDir(filepath.Join(dossier, DossierDemandes))
 	if err != nil {
 		return out
@@ -52,12 +127,10 @@ func Demandes(dossier string) map[string]Demande {
 		}
 		b, _, ok := lireFichier(filepath.Join(dossier, DossierDemandes), e.Name())
 		var d Demande
-		if !ok || json.Unmarshal(b, &d) != nil || !nomValide.MatchString(d.Nom) {
+		if !ok || json.Unmarshal(b, &d) != nil || (d.Nom != "" && !nomValide.MatchString(d.Nom)) || (d.Nom == "" && d.Action != Nouveau) {
 			continue
 		}
-		if _, deja := out[d.Nom]; !deja {
-			out[d.Nom] = d
-		}
+		out = append(out, d)
 	}
 	return out
 }
@@ -78,10 +151,21 @@ func Demander(dossier, nom, action, par string, maintenant time.Time) (Demande, 
 	if _, deja := Demandes(dossier)[nom]; deja {
 		return Demande{}, ErrDejaDemande
 	}
-	dem := Demande{Action: action, Nom: nom, Par: par, Date: maintenant.UTC()}
+	return deposer(dossier, Demande{Action: action, Nom: nom, Par: par, Date: maintenant.UTC()}, maintenant)
+}
+
+// DemanderNouveau dépose la demande d'un nouvel entraînement, après vérification des réglages.
+func DemanderNouveau(dossier string, r Reglages, par string, maintenant time.Time) (Demande, error) {
+	if err := r.Verifier(); err != nil {
+		return Demande{}, err
+	}
+	return deposer(dossier, Demande{Action: Nouveau, Par: par, Date: maintenant.UTC(), Reglages: &r}, maintenant)
+}
+
+func deposer(dossier string, dem Demande, maintenant time.Time) (Demande, error) {
 	b, _ := json.Marshal(dem)
 	rep := filepath.Join(dossier, DossierDemandes)
-	fichier := fmt.Sprintf("%d-%s-%s.json", maintenant.UnixMilli(), action, nom)
+	fichier := fmt.Sprintf("%d-%s-%s.json", maintenant.UnixMilli(), dem.Action, dem.Nom)
 	tmp := filepath.Join(rep, "."+fichier+".tmp")
 	if err := os.WriteFile(tmp, b, 0o666); err != nil {
 		if errors.Is(err, fs.ErrPermission) || errors.Is(err, fs.ErrNotExist) || errors.Is(err, os.ErrPermission) {

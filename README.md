@@ -38,6 +38,8 @@ Seul Caddy publie un port, sur le réseau local. Les réseaux `app`, `data` et `
 
 ## Démarrer la pile (serveur du réseau local)
 
+**Nouveau serveur** : `./scripts/installer-serveur.sh` installe tout (Docker, pilote et accès GPU, PyTorch adapté, pile, démarrage automatique) en détectant le matériel ; voir [docs/installation-serveur.md](docs/installation-serveur.md). Installation à la main :
+
 Prérequis : Docker avec le plugin compose, un nom DNS local (ou une ligne dans le fichier hosts des postes) qui pointe vers le serveur.
 
 ```bash

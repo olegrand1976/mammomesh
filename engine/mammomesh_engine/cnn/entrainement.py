@@ -19,6 +19,7 @@ from ..materiel import torch_outils as to
 from .cmmd import Image
 from .metriques import mesurer, seuil_pour_sensibilite
 from .pretraitement import controler_place, nom_cache
+from .suivi import SansSuivi, Suivi
 
 ARCHITECTURE = "efficientnet_b0"
 MOYENNE, ECART = (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)   # normalisation ImageNet
@@ -130,7 +131,7 @@ def _lignes(images: list[Image], scores: list[float]) -> list[tuple[str, int, fl
 def entrainer(images: list[Image], cache: Path, sortie: Path, *, resolution: tuple[int, int] = PALIERS[0],
               epoques: int = 15, lot_effectif: int = 32, patience: int = 5, lr: float = 3e-4,
               preentraine: bool = True, appareil: str | None = None, compiler: bool = True,
-              sensibilite_cible: float = 0.85, graine: int = 42, journal=print) -> dict:
+              sensibilite_cible: float = 0.85, graine: int = 42, journal=print, suivi: Suivi | None = None) -> dict:
     import torch
     from torch.utils.data import DataLoader
 
@@ -138,7 +139,9 @@ def entrainer(images: list[Image], cache: Path, sortie: Path, *, resolution: tup
     torch.manual_seed(graine)
     controler_place(sortie, 200_000_000, "Modèle et journaux")   # poids (~16 Mo), copies, journaux
     sortie.mkdir(parents=True, exist_ok=True)
+    suivi = suivi or SansSuivi()
 
+    suivi.phase("calibrage")
     plan = choisir_plan(resolution=resolution, lot_effectif=lot_effectif, appareil=appareil, compiler=compiler, journal=journal)
     taille = plan.taille_entree
     journal(plan.resume())
@@ -158,6 +161,11 @@ def entrainer(images: list[Image], cache: Path, sortie: Path, *, resolution: tup
     n_neg = len(sel["entrainement"]) - n_pos
     critere = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(n_neg / max(n_pos, 1), device=dev))
     opt = torch.optim.AdamW(modele.parameters(), lr=lr, weight_decay=1e-4)
+    suivi.phase("entrainement", epoque=0, epoques=epoques, pas=0, pas_par_epoque=len(ch_entr),
+                taille_entree=list(taille), lot=plan.lot, accumulation=plan.accumulation, precision=plan.precision,
+                appareil=plan.nom_appareil, plan=plan.resume().splitlines(),
+                donnees={s: {"images": len(v), "seins_malins": len({im.sein for im in v if im.etiquette})}
+                         for s, v in sel.items()})
     pas_par_epoque = max(1, math.ceil(len(ch_entr) / plan.accumulation))
     total, chauffe = pas_par_epoque * epoques, pas_par_epoque
     sched = torch.optim.lr_scheduler.LambdaLR(opt, lambda k: min(1.0, (k + 1) / chauffe)
@@ -191,6 +199,8 @@ def entrainer(images: list[Image], cache: Path, sortie: Path, *, resolution: tup
                     sched.step()
                 cumul += perte.item() * plan.accumulation * len(y)
                 n += len(y)
+                suivi.progres(epoque=ep, pas=k, etape="apprentissage", perte_courante=cumul / max(n, 1))
+            suivi.phase("entrainement", epoque=ep, pas=len(ch_entr), etape="mesure en ajustement")
             m_aj = mesurer(_lignes(sel["ajustement"], _predire(modele, ch_ajust, plan, dev)))
             duree = time.time() - t0
             auc_s = m_aj["auc_sein"] or 0.0
@@ -198,6 +208,8 @@ def entrainer(images: list[Image], cache: Path, sortie: Path, *, resolution: tup
             jw.writerow([ep, f"{cumul / max(n, 1):.4f}", f"{m_aj['auc_image'] or 0:.4f}", f"{auc_s:.4f}", f"{duree:.0f}"])
             jf.flush()
             mieux = auc_s > meilleur
+            suivi.phase("entrainement", epoque=ep, etape="époque terminée", derniere_auc_sein=auc_s,
+                        meilleure_auc_sein=max(auc_s, meilleur))
             journal(f"  époque {ep}/{epoques} : perte {cumul / max(n, 1):.4f}, AUC ajustement {auc_s:.3f} par sein"
                     f" ({m_aj['auc_image'] or 0:.3f} par image), {duree:.0f} s" + (" ← meilleure" if mieux else ""))
             if mieux:
@@ -212,6 +224,7 @@ def entrainer(images: list[Image], cache: Path, sortie: Path, *, resolution: tup
                     break
 
     # Meilleur modèle : seuil choisi en ajustement, mesures finales en validation (jamais vues avant).
+    suivi.phase("evaluation", etape="seuil en ajustement, mesures en validation")
     meilleur_etat = torch.load(poids, map_location=dev, weights_only=True)
     getattr(modele, "_orig_mod", modele).load_state_dict(meilleur_etat["etat"])
     lignes_aj = _lignes(sel["ajustement"], _predire(modele, ch_ajust, plan, dev))

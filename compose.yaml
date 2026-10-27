@@ -72,6 +72,10 @@ services:
       COALESCE_INTERVAL: 2s
       # Pixels des images de test (en-têtes patient jamais gardés), sur le filer SeaweedFS interne.
       IMAGES_URL: http://s3:8888/mammomesh-images
+      # Suivi des entraînements du CNN (menu « Entraînements ») : dossiers de ./modeles, en lecture seule.
+      MODELES_DIR: /modeles
+    volumes:
+      - ${MODELES_DIR_HOTE:-./modeles}:/modeles:ro
     healthcheck:
       test: ["CMD", "/usr/local/bin/mammomesh", "healthcheck"]
       interval: 10s

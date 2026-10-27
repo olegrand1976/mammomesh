@@ -10,6 +10,7 @@ from pathlib import Path
 
 from . import cmmd
 from .pretraitement import PlaceInsuffisante, nom_cache, pretraiter
+from .suivi import Suivi
 
 DEPOT = Path(__file__).resolve().parents[3]
 
@@ -47,7 +48,11 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     h, w = a.resolution
     cache = a.cache / f"cmmd-{h}x{w}"
+    sortie = a.sortie or DEPOT / "modeles" / f"cnn-cmmd-{datetime.now():%Y%m%d-%H%M}"
+    suivi = Suivi(sortie, jeu="CMMD", commande=" ".join(sys.argv[1:] if argv is None else argv)) if a.jusqua is None else None
     try:
+        if suivi:
+            suivi.phase("index")
         print(f"== Index CMMD ({dossier})")
         images, stats = cmmd.indexer(dossier, limite_patientes=a.limite)
         images = cmmd.decouper(images, graine=a.graine)
@@ -60,7 +65,16 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         print(f"== Prétraitement {h}×{w} → {cache}")
-        p = pretraiter(images, dossier, cache, h, w)
+        if suivi:
+            suivi.phase("pretraitement", donnees=cmmd.resumer(images))
+
+        def journal_pre(msg: str) -> None:
+            print(msg)
+            if suivi and "/" in msg:
+                fait, total = msg.split()[-1].split("/")
+                suivi.progres(pretraites=int(fait), a_pretraiter=int(total))
+
+        p = pretraiter(images, dossier, cache, h, w, journal=journal_pre)
         print(f"  {p['faits']} faits, {p['deja_la']} déjà là, {len(p['echecs'])} échec(s)")
         for e in p["echecs"][:10]:
             print(f"  ÉCHEC {e}", file=sys.stderr)
@@ -70,14 +84,26 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         from .entrainement import entrainer
-        sortie = a.sortie or DEPOT / "modeles" / f"cnn-cmmd-{datetime.now():%Y%m%d-%H%M}"
         print(f"== Entraînement → {sortie}")
         r = entrainer(images, cache, sortie, resolution=a.resolution, epoques=a.epoques, lot_effectif=a.lot_effectif,
                       patience=a.patience, lr=a.lr, preentraine=not a.sans_preentrainement, appareil=a.appareil,
-                      compiler=not a.sans_compile, sensibilite_cible=a.sensibilite_cible, graine=a.graine)
+                      compiler=not a.sans_compile, sensibilite_cible=a.sensibilite_cible, graine=a.graine,
+                      suivi=suivi)
     except PlaceInsuffisante as e:
         print(f"REFUS : {e}", file=sys.stderr)
+        if suivi:
+            suivi.fin("echec", f"Place insuffisante : {e}")
         return 2
+    except KeyboardInterrupt:
+        if suivi:
+            suivi.fin("interrompu", "Arrêté à la main (Ctrl+C)")
+        raise
+    except BaseException as e:
+        if suivi:
+            suivi.fin("echec", f"{type(e).__name__} : {e}")
+        raise
+    if suivi:
+        suivi.fin("termine")
     v = r["validation"]
     fmt = lambda x: "—" if x is None else f"{x:.3f}"
     print(f"== Validation (E-val, jamais vue pendant l'entraînement) : AUC {fmt(v['auc_sein'])} par sein, "

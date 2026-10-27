@@ -20,7 +20,7 @@ La conception complète (protocole, garde-fous, pile, déploiement) est dans la 
 | Documentation intégrée : fonctionnement, modèle mathématique (KaTeX), guides d'écran, lexique des mutations | fait, aussi dans `docs/` |
 | Docker compose : Caddy, web, api, orchestrator, migrate, PostgreSQL 18, Redis 8, SeaweedFS, sauvegarde, observabilité | fait |
 | Boucle CNN + CephaloMesh | **simulée** (déterministe) : le vrai couple arrive aux jalons 1 à 3 |
-| CNN de base (EfficientNet-B0, malin ou bénin sur CMMD) | code prêt (`engine/mammomesh_engine/cnn`), entraînement à lancer sur GPU ; pas encore branché au test d'image |
+| CNN de base (EfficientNet-B0, malin ou bénin sur CMMD) | code prêt (`engine/mammomesh_engine/cnn`), suivi dans l'interface (menu Entraînements) ; pas encore branché au test d'image |
 | Banque d'entraînement, chaîne d'import DICOM complète (JPEG 2000, pseudonymisation de la banque), moteur d'analyse, Triton, entraînement | jalons 0 et 1 |
 
 ## Architecture
@@ -114,6 +114,7 @@ python -m mammomesh_engine.cnn --banque ../banque                               
 - **Prétraitement** : sein orienté à gauche, recadré sur le tissu, mis en 1024 × 832 (PNG 8 bits dans `./cache/cnn`, environ 2 Go). La place libre est contrôlée avant d'écrire (`MARGE_GO`, 10 Go par défaut).
 - **Entraînement** : réglé par le plan matériel (appareil, précision, workers) ; sur GPU, le lot est mesuré par `calibrer()`, et la résolution descend (768 × 624, puis 512 × 416) si l'image entière ne tient pas. Poids ImageNet au départ (`--sans-preentrainement` pour partir de zéro), arrêt quand l'AUC par sein en ajustement ne progresse plus (`--patience`).
 - **Résultat** dans `./modeles/cnn-cmmd-AAAAMMJJ-HHMM/` : `modele.pt` (meilleure époque, seuil inclus), `journal.csv`, `rapport.json`. Le seuil est choisi en ajustement pour une sensibilité de 0,85 par sein (`--sensibilite-cible`) ; AUC, sensibilité et spécificité finales sont mesurées en validation, sur des patientes jamais vues.
+- **Suivi** : menu **Entraînements** de l'interface (rafraîchi toutes les 5 s) : phase, avancement, courbes d'AUC et de perte par époque, résultat final, plan matériel. L'API lit `./modeles` en lecture seule (`MODELES_DIR`, monté d'office par Docker ; en développement : `MODELES_DIR=../modeles make dev-api`). Chaque entraînement y écrit `etat.json` (phase et pas, toutes les 10 s), `journal.csv` (une ligne par époque) et `rapport.json` (à la fin). Les fichiers doivent être lisibles par tous (umask 022 par défaut), le conteneur `api` ne tourne pas sous ton compte.
 - Les poids ImageNet de torchvision viennent d'un jeu d'images sous conditions non commerciales : à réexaminer avant tout usage commercial (ou entraîner avec `--sans-preentrainement`).
 
 ## Brancher Claude Code (MCP)

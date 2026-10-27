@@ -38,5 +38,7 @@ banque/
 
 # CNN : PNG prétraités et modèles entraînés (python -m mammomesh_engine.cnn)
 /cache/
-/modeles/
+# modeles/ existe toujours (.gitkeep) : sinon Docker le créerait au nom de root et l'entraînement ne pourrait plus y écrire.
+/modeles/*
+!/modeles/.gitkeep
 engine/.venv/

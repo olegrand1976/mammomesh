@@ -101,6 +101,8 @@ func (s *Server) Router() http.Handler {
 			r.Delete("/api/images/{id}", s.deleteImage)
 			r.Get("/api/images/{id}/tests", s.listImageTests)
 			r.Post("/api/images/{id}/tests", s.testImage)
+			r.Get("/api/entrainements", s.listEntrainements)
+			r.Get("/api/entrainements/{nom}", s.getEntrainement)
 		})
 	})
 
